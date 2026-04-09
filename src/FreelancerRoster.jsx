@@ -559,7 +559,7 @@ ${JSON.stringify(ctx, null, 2)}`,
           {/* table header */}
           <div style={{ display: "grid", gridTemplateColumns: grid, padding: "10px 32px", borderBottom: `2px solid ${C.rule}`, background: C.bg, position: "sticky", top: 64, zIndex: 40, alignItems: "center" }}>
             <ThBtn k="name">Name</ThBtn>
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af" }}>EMAIL</span>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af" }}>CONTACT</span>
             <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af" }}>BEST AT</span>
             <div onClick={e => e.stopPropagation()}><FilterHeader label="Tier" tooltip="Overall quality and capability level" options={TIER} activeValue={tierFilter} onSelect={setTierFilter} isOpen={tierDrop} onToggle={() => { setTierDrop(!tierDrop); setTrustDrop(false); }} /></div>
             <div onClick={e => e.stopPropagation()}><FilterHeader label="Trust" tooltip="How established our working relationship is" options={TRUST} activeValue={trustFilter} onSelect={setTrustFilter} isOpen={trustDrop} onToggle={() => { setTrustDrop(!trustDrop); setTierDrop(false); }} /></div>
@@ -604,7 +604,7 @@ ${JSON.stringify(ctx, null, 2)}`,
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 5, paddingTop: 1, minWidth: 0 }}>
                 <span style={{ fontSize: 14, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
-                <button onClick={() => copyEmail(p.id, p.email)} style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", padding: 2, borderRadius: 3, color: copiedId === p.id ? "#059669" : "#c8cecd", transition: "color 0.15s" }}>{copiedId === p.id ? <Check size={14} /> : <Copy size={14} />}</button>
+                {!p.email.toLowerCase().includes("fiverr") && <button onClick={() => copyEmail(p.id, p.email)} style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", padding: 2, borderRadius: 3, color: copiedId === p.id ? "#059669" : "#c8cecd", transition: "color 0.15s" }}>{copiedId === p.id ? <Check size={14} /> : <Copy size={14} />}</button>}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 2, paddingLeft: 4 }}>{p.bestAt.map(b => <span key={b} style={{ fontSize: 13, fontWeight: 700, color: C.body, lineHeight: 1.3 }}>{b}</span>)}</div>
               <div><TierBadge tier={p.tier} /></div>
