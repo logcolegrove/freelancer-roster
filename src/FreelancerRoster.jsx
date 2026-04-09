@@ -263,7 +263,7 @@ export default function FreelancerRoster() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   // ⬇️ PASTE YOUR ANTHROPIC API KEY BETWEEN THE QUOTES BELOW ⬇️
-  const apiKey = "YOUR_API_KEY_HERE";
+  const apiKey = process.env.REACT_APP_API_KEY || "YOUR_API_KEY_HERE";
   // ⬆️ Get one at https://console.anthropic.com/settings/keys ⬆️
   const [isListening, setIsListening] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
