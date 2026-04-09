@@ -256,13 +256,14 @@ export default function FreelancerRoster() {
   const [starOnly, setStarOnly] = useState(false);
   const [sortBy, setSortBy] = useState("name");
   const [expandedRows, setExpandedRows] = useState({});
+  const [expandedRecs, setExpandedRecs] = useState({});
   const [roster] = useState(ROSTER);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiMessages, setAiMessages] = useState([]);  // { role, content, recommendations? }
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   // ⬇️ PASTE YOUR ANTHROPIC API KEY BETWEEN THE QUOTES BELOW ⬇️
-  const apiKey = process.env.REACT_APP_API_KEY || "YOUR_API_KEY_HERE";
+  const apiKey = "YOUR_API_KEY_HERE";
   // ⬆️ Get one at https://console.anthropic.com/settings/keys ⬆️
   const [isListening, setIsListening] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
@@ -388,10 +389,10 @@ ${JSON.stringify(ctx, null, 2)}`,
   /* ── tiny components ─────────────────────────────────── */
   const Tip = ({ text, children }) => <span className="tip" style={{ position: "relative", display: "inline-flex" }}>{children}<span className="tip-text">{text}</span></span>;
 
-  const TierBadge = ({ tier }) => <Tip text={TIER[tier].desc}><span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 3, color: "#71717a", background: "#f4f4f5", cursor: "help" }}>{TIER[tier].label}</span></Tip>;
-  const TrustBadge = ({ trust }) => { const t = TRUST[trust]; return <Tip text={t.desc}><span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 3, color: t.color, background: t.bg, cursor: "help" }}>{t.label}</span></Tip>; };
-  const Price = ({ level }) => <Tip text={PRICE_DESC[level]}><span style={{ fontSize: 13, letterSpacing: -0.5, cursor: "help" }}>{[1,2,3,4].map(i => <span key={i} style={{ color: i <= level ? C.navy : "#d4d8d7", fontWeight: i <= level ? 900 : 400 }}>$</span>)}</span></Tip>;
-  const SpeedBadge = ({ level }) => { const s = SPEED[level]; return <Tip text={s.desc}><span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, color: s.color, cursor: "help" }}>{level === "fast" ? <Zap size={10} /> : <Clock size={10} />}{s.label}</span></Tip>; };
+  const TierBadge = ({ tier }) => <Tip text={TIER[tier].desc}><span style={{ display: "inline-block", fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", padding: "3px 8px", borderRadius: 3, color: "#71717a", background: "#f4f4f5", cursor: "help" }}>{TIER[tier].label}</span></Tip>;
+  const TrustBadge = ({ trust }) => { const t = TRUST[trust]; return <Tip text={t.desc}><span style={{ display: "inline-block", fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", padding: "3px 8px", borderRadius: 3, color: t.color, background: t.bg, cursor: "help" }}>{t.label}</span></Tip>; };
+  const Price = ({ level }) => <Tip text={PRICE_DESC[level]}><span style={{ fontSize: 15, letterSpacing: -0.5, cursor: "help" }}>{[1,2,3,4].map(i => <span key={i} style={{ color: i <= level ? C.navy : "#d4d8d7", fontWeight: i <= level ? 900 : 400 }}>$</span>)}</span></Tip>;
+  const SpeedBadge = ({ level }) => { const s = SPEED[level]; return <Tip text={s.desc}><span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 600, color: s.color, cursor: "help" }}>{level === "fast" ? <Zap size={12} /> : <Clock size={12} />}{s.label}</span></Tip>; };
 
   const FilterHeader = ({ label, tooltip, options, activeValue, onSelect, isOpen, onToggle }) => (
     <div style={{ position: "relative" }}>
@@ -412,7 +413,7 @@ ${JSON.stringify(ctx, null, 2)}`,
   );
   const ThBtn = ({ children, k }) => <button onClick={() => setSortBy(k)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: sortBy === k ? C.teal : "#9ca3af" }}>{children}<ChevronsUpDown size={10} style={{ opacity: sortBy === k ? 1 : 0.25 }} /></button>;
 
-  const grid = "minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1fr) 64px 72px 52px 56px 68px";
+  const grid = "minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1fr) 72px 80px 60px 72px 84px";
   const closeDrop = () => { setTierDrop(false); setTrustDrop(false); };
 
   return (
@@ -439,18 +440,18 @@ ${JSON.stringify(ctx, null, 2)}`,
       <div style={{ height: 3, background: `linear-gradient(90deg, ${C.teal}, #2CCCD3, #84BD00, ${C.green})` }} />
 
       {/* header */}
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 56, borderBottom: `1px solid ${C.rule}`, background: C.white, position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-          <span style={{ fontWeight: 900, fontSize: 17, color: C.navy, letterSpacing: "-0.02em" }}>Freelancer & Agency Roster</span>
-          <span style={{ fontSize: 11, color: "#b0b5b4", fontWeight: 400, letterSpacing: "0.01em" }}>Foundant's internal directory of multimedia & creative partners</span>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", height: 64, borderBottom: `1px solid ${C.rule}`, background: C.white, position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <span style={{ fontWeight: 900, fontSize: 22, color: C.navy, letterSpacing: "-0.02em" }}>Foundant's Freelancer & Agency Roster</span>
+          <span style={{ fontSize: 14, color: "#b0b5b4", fontWeight: 400, letterSpacing: "0.01em" }}>Internal directory of our multimedia & creative partners</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {[["browse", LayoutGrid, "Browse"], ["ai", Sparkles, "Recommend"]].map(([m, Icon, lbl]) => (
             <button key={m} onClick={() => { setMode(m); if (m === "browse") setAiMessages([]); }}
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", fontSize: 11, fontWeight: 700, borderRadius: 4, border: `1px solid ${C.rule}`, cursor: "pointer", background: mode === m ? C.navy : C.white, color: mode === m ? "#fff" : C.body, transition: "all 0.15s" }}><Icon size={12} />{lbl}</button>
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", fontSize: 13, fontWeight: 700, borderRadius: 5, border: `1px solid ${C.rule}`, cursor: "pointer", background: mode === m ? C.navy : C.white, color: mode === m ? "#fff" : C.body, transition: "all 0.15s" }}><Icon size={14} />{lbl}</button>
           ))}
-          <div style={{ width: 1, height: 18, background: C.rule, margin: "0 4px" }} />
-          <button onClick={e => { e.stopPropagation(); setShowInfo(true); }} style={{ display: "flex", alignItems: "center", padding: 6, borderRadius: 4, border: `1px solid ${C.rule}`, cursor: "pointer", background: C.white, color: "#9ca3af" }} title="Field reference"><HelpCircle size={14} /></button>
+          <div style={{ width: 1, height: 22, background: C.rule, margin: "0 6px" }} />
+          <button onClick={e => { e.stopPropagation(); setShowInfo(true); }} style={{ display: "flex", alignItems: "center", padding: 8, borderRadius: 5, border: `1px solid ${C.rule}`, cursor: "pointer", background: C.white, color: "#9ca3af" }} title="Field reference"><HelpCircle size={16} /></button>
         </div>
       </header>
 
@@ -494,7 +495,7 @@ ${JSON.stringify(ctx, null, 2)}`,
           <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "0 24px", borderBottom: `1px solid ${C.rule}` }}>
             {CATS.map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => setCategory(key)}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "11px 16px", fontSize: 12, fontWeight: 700, color: category === key ? C.teal : "#9ca3af", background: "none", border: "none", borderBottom: category === key ? `2px solid ${C.teal}` : "2px solid transparent", cursor: "pointer", marginBottom: -1 }}><Icon size={14} />{label}</button>
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "13px 20px", fontSize: 14, fontWeight: 700, color: category === key ? C.teal : "#9ca3af", background: "none", border: "none", borderBottom: category === key ? `2px solid ${C.teal}` : "2px solid transparent", cursor: "pointer", marginBottom: -1 }}><Icon size={16} />{label}</button>
             ))}
             <div style={{ flex: 1 }} />
             <span style={{ fontSize: 11, color: "#9ca3af" }}>{filtered.length}<span style={{ color: "#d4d8d7" }}> / {roster.length}</span></span>
@@ -556,28 +557,28 @@ ${JSON.stringify(ctx, null, 2)}`,
           )}
 
           {/* table header */}
-          <div style={{ display: "grid", gridTemplateColumns: grid, padding: "8px 24px", borderBottom: `2px solid ${C.rule}`, background: C.bg, position: "sticky", top: 56, zIndex: 40, alignItems: "center" }}>
+          <div style={{ display: "grid", gridTemplateColumns: grid, padding: "10px 32px", borderBottom: `2px solid ${C.rule}`, background: C.bg, position: "sticky", top: 64, zIndex: 40, alignItems: "center" }}>
             <ThBtn k="name">Name</ThBtn>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af" }}>EMAIL</span>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af" }}>BEST AT</span>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af" }}>EMAIL</span>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af" }}>BEST AT</span>
             <div onClick={e => e.stopPropagation()}><FilterHeader label="Tier" tooltip="Overall quality and capability level" options={TIER} activeValue={tierFilter} onSelect={setTierFilter} isOpen={tierDrop} onToggle={() => { setTierDrop(!tierDrop); setTrustDrop(false); }} /></div>
             <div onClick={e => e.stopPropagation()}><FilterHeader label="Trust" tooltip="How established our working relationship is" options={TRUST} activeValue={trustFilter} onSelect={setTrustFilter} isOpen={trustDrop} onToggle={() => { setTrustDrop(!trustDrop); setTierDrop(false); }} /></div>
             <ThBtn k="price">Price</ThBtn>
-            <Tip text="How quickly they typically deliver projects"><span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af", cursor: "help" }}>SPEED</span></Tip>
-            <span className="tip tip-right" style={{ position: "relative", display: "inline-flex" }}><span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af", cursor: "help" }}>IN SYSTEM</span><span className="tip-text">Cleared by risk/compliance with bank info on file</span></span>
+            <Tip text="How quickly they typically deliver projects"><span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af", cursor: "help" }}>SPEED</span></Tip>
+            <span className="tip tip-right" style={{ position: "relative", display: "inline-flex" }}><span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af", cursor: "help" }}>IN SYSTEM</span><span className="tip-text">Cleared by risk/compliance with bank info on file</span></span>
           </div>
 
           {/* rows */}
           {filtered.map(p => (
-            <div key={p.id} className="rr" style={{ display: "grid", gridTemplateColumns: grid, padding: "12px 24px", borderBottom: "1px solid #f4f5f4", background: C.white, alignItems: "start", transition: "background 0.1s" }}>
+            <div key={p.id} className="rr" style={{ display: "grid", gridTemplateColumns: grid, padding: "14px 32px", borderBottom: "1px solid #f4f5f4", background: C.white, alignItems: "start", transition: "background 0.1s" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
-                  {p.star && <span className="tip tip-left" style={{ position: "relative", display: "inline-flex" }}><Star size={12} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /><span className="tip-text">Superstar — Top recommendation based on quality, value, and ease of working together.</span></span>}
-                  <a href={p.website} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 900, fontSize: 13, color: C.navy, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>{p.name}<ExternalLink size={10} style={{ color: "#d4d8d7", flexShrink: 0 }} /></a>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                  {p.star && <span className="tip tip-left" style={{ position: "relative", display: "inline-flex" }}><Star size={14} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /><span className="tip-text">Superstar — Top recommendation based on quality, value, and ease of working together.</span></span>}
+                  <a href={p.website} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 900, fontSize: 15, color: C.navy, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>{p.name}<ExternalLink size={12} style={{ color: "#d4d8d7", flexShrink: 0 }} /></a>
                 </div>
-                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 4 }}>{p.location}</div>
-                <button onClick={() => toggleRow(p.id)} style={{ all: "unset", cursor: "pointer", fontSize: 10, color: "#9ca3af", display: "flex", alignItems: "center", gap: 3 }}>
-                  {expandedRows[p.id] ? <ChevronUp size={10} /> : <ChevronDown size={10} />}Details
+                <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 5 }}>{p.location}</div>
+                <button onClick={() => toggleRow(p.id)} style={{ all: "unset", cursor: "pointer", fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 3 }}>
+                  {expandedRows[p.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}Details
                 </button>
                 {expandedRows[p.id] && (
                   <div style={{ marginTop: 6 }}>
@@ -602,17 +603,17 @@ ${JSON.stringify(ctx, null, 2)}`,
                 )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 5, paddingTop: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 12, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
-                <button onClick={() => copyEmail(p.id, p.email)} style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", padding: 2, borderRadius: 3, color: copiedId === p.id ? "#059669" : "#c8cecd", transition: "color 0.15s" }}>{copiedId === p.id ? <Check size={12} /> : <Copy size={12} />}</button>
+                <span style={{ fontSize: 14, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
+                <button onClick={() => copyEmail(p.id, p.email)} style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", padding: 2, borderRadius: 3, color: copiedId === p.id ? "#059669" : "#c8cecd", transition: "color 0.15s" }}>{copiedId === p.id ? <Check size={14} /> : <Copy size={14} />}</button>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 2, paddingLeft: 4 }}>{p.bestAt.map(b => <span key={b} style={{ fontSize: 11, fontWeight: 700, color: C.body, lineHeight: 1.3 }}>{b}</span>)}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 2, paddingLeft: 4 }}>{p.bestAt.map(b => <span key={b} style={{ fontSize: 13, fontWeight: 700, color: C.body, lineHeight: 1.3 }}>{b}</span>)}</div>
               <div><TierBadge tier={p.tier} /></div>
               <div><TrustBadge trust={p.trust} /></div>
               <div><Price level={p.price} /></div>
               <div><SpeedBadge level={p.speed} /></div>
               <div>{p.approvedVendor
-                ? <span className="tip tip-right" style={{ position: "relative", display: "inline-flex" }}><span style={{ fontSize: 10, fontWeight: 700, color: "#059669", display: "flex", alignItems: "center", gap: 3, cursor: "help" }}><Check size={10} />Approved</span><span className="tip-text">Cleared by risk/compliance, bank info on file — ready to engage</span></span>
-                : <span className="tip tip-right" style={{ position: "relative", display: "inline-flex" }}><span style={{ fontSize: 10, color: "#b0b5b4", cursor: "help" }}>Needs setup</span><span className="tip-text">Still needs compliance review and payment setup</span></span>}</div>
+                ? <span className="tip tip-right" style={{ position: "relative", display: "inline-flex" }}><span style={{ fontSize: 12, fontWeight: 700, color: "#059669", display: "flex", alignItems: "center", gap: 3, cursor: "help" }}><Check size={12} />Approved</span><span className="tip-text">Cleared by risk/compliance, bank info on file — ready to engage</span></span>
+                : <span className="tip tip-right" style={{ position: "relative", display: "inline-flex" }}><span style={{ fontSize: 12, color: "#b0b5b4", cursor: "help" }}>Needs setup</span><span className="tip-text">Still needs compliance review and payment setup</span></span>}</div>
             </div>
           ))}
           {filtered.length === 0 && <div style={{ textAlign: "center", padding: "52px 20px" }}><p style={{ fontSize: 13, color: "#9ca3af" }}>No results match your filters.</p><button onClick={clearAll} style={{ all: "unset", cursor: "pointer", fontSize: 12, color: C.teal, marginTop: 8, textDecoration: "underline" }}>Clear all</button></div>}
@@ -695,32 +696,45 @@ ${JSON.stringify(ctx, null, 2)}`,
                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                           {msg.recommendations.map((rec, j) => {
                             const m = roster.find(r => r.name.toLowerCase() === rec.name?.toLowerCase());
+                            const recKey = `${i}-${j}`;
+                            const isExpanded = expandedRecs[recKey];
                             return (
                               <div key={j} style={{ padding: "16px 18px", borderRadius: 6, border: `1px solid ${C.rule}`, background: C.bg }}>
+                                {/* name row */}
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                                  <span style={{ width: 20, height: 20, borderRadius: 99, background: "#ecfafa", color: C.teal, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, flexShrink: 0 }}>{j + 1}</span>
-                                  {m?.star && <Tip text="Superstar — Top recommendation based on quality, value, and ease of working together."><Star size={12} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /></Tip>}
-                                  <a href={m?.website} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 900, fontSize: 14, color: C.navy, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-                                    {rec.name}<ExternalLink size={10} style={{ color: "#d4d8d7" }} />
+                                  <span style={{ width: 22, height: 22, borderRadius: 99, background: "#ecfafa", color: C.teal, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, flexShrink: 0 }}>{j + 1}</span>
+                                  {m?.star && <Tip text="Superstar — Top recommendation based on quality, value, and ease of working together."><Star size={14} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /></Tip>}
+                                  <a href={m?.website} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 900, fontSize: 16, color: C.navy, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+                                    {rec.name}<ExternalLink size={11} style={{ color: "#d4d8d7" }} />
                                   </a>
                                 </div>
+                                {/* badges row */}
                                 {m && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                                   <TierBadge tier={m.tier} /><TrustBadge trust={m.trust} />
                                   <span style={{ width: 1, height: 12, background: C.rule }} />
                                   <Price level={m.price} /><SpeedBadge level={m.speed} />
                                   <span style={{ width: 1, height: 12, background: C.rule }} />
                                   {m.approvedVendor
-                                    ? <span style={{ fontSize: 10, fontWeight: 700, color: "#059669", display: "inline-flex", alignItems: "center", gap: 3 }}><Check size={10} />Approved</span>
-                                    : <span style={{ fontSize: 10, color: "#b0b5b4" }}>Needs setup</span>}
+                                    ? <span style={{ fontSize: 12, fontWeight: 700, color: "#059669", display: "inline-flex", alignItems: "center", gap: 3 }}><Check size={12} />Approved</span>
+                                    : <span style={{ fontSize: 12, color: "#b0b5b4" }}>Needs setup</span>}
                                 </div>}
+                                {/* email */}
                                 {m && <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 10 }}>
-                                  <span style={{ fontSize: 12, color: C.navy }}>{m.email}</span>
-                                  <button onClick={() => copyEmail(m.id, m.email)} style={{ all: "unset", cursor: "pointer", color: copiedId === m.id ? "#059669" : "#c8cecd" }}>{copiedId === m.id ? <Check size={12} /> : <Copy size={12} />}</button>
+                                  <span style={{ fontSize: 13, color: C.navy }}>{m.email}</span>
+                                  <button onClick={() => copyEmail(m.id, m.email)} style={{ all: "unset", cursor: "pointer", color: copiedId === m.id ? "#059669" : "#c8cecd" }}>{copiedId === m.id ? <Check size={13} /> : <Copy size={13} />}</button>
                                 </div>}
-                                <p style={{ fontSize: 12, color: C.body, lineHeight: 1.6, marginBottom: rec.caveats ? 8 : 0 }}>{rec.reasoning}</p>
-                                {rec.caveats && <p style={{ fontSize: 11, fontStyle: "italic", color: "#9ca3af", paddingLeft: 8, borderLeft: `2px solid ${C.rule}`, marginBottom: 8 }}>⚠ {rec.caveats}</p>}
-                                {m && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingTop: 8, borderTop: `1px solid ${C.rule}` }}>
-                                  {m.skills.map(s => <span key={s} style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "#eef0ef", color: "#71717a" }}>{s}</span>)}
+                                {/* AI reasoning — the star of the card */}
+                                <p style={{ fontSize: 14, color: C.body, lineHeight: 1.65, marginBottom: rec.caveats ? 8 : 0 }}>{rec.reasoning}</p>
+                                {rec.caveats && <p style={{ fontSize: 12, fontStyle: "italic", color: "#9ca3af", paddingLeft: 8, borderLeft: `2px solid ${C.rule}`, marginBottom: 0 }}>⚠ {rec.caveats}</p>}
+                                {/* expandable details */}
+                                {m && <div style={{ marginTop: 10, borderTop: `1px solid ${C.rule}`, paddingTop: 8 }}>
+                                  <button onClick={() => setExpandedRecs(p => ({ ...p, [recKey]: !p[recKey] }))} style={{ all: "unset", cursor: "pointer", fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 3 }}>
+                                    {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}Skills & details
+                                  </button>
+                                  {isExpanded && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 8 }}>
+                                    {m.skills.map(s => <span key={s} style={{ fontSize: 11, padding: "2px 7px", borderRadius: 3, background: "#eef0ef", color: "#71717a" }}>{s}</span>)}
+                                    {m.notes && <p style={{ fontSize: 12, fontStyle: "italic", color: "#9ca3af", lineHeight: 1.5, marginTop: 6, paddingLeft: 8, borderLeft: `2px solid ${C.rule}`, width: "100%" }}>{m.notes}</p>}
+                                  </div>}
                                 </div>}
                               </div>
                             );
