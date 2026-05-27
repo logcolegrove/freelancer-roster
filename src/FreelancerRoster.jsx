@@ -894,10 +894,11 @@ ${JSON.stringify(ctx, null, 2)}`,
                   )}
                 </div>
                 {viewChanged && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 4px 4px 10px", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 99, fontSize: 12 }}>
-                    <span style={{ color: "#92400e", fontWeight: 600 }}>View changed</span>
-                    <button onClick={saveCurrentView} style={{ all: "unset", cursor: "pointer", padding: "4px 10px", background: "#fff", color: "#92400e", fontSize: 12, fontWeight: 700, borderRadius: 99, border: "1px solid #fcd34d" }}>Save view</button>
-                    <button onClick={resetView} title="Discard changes" style={{ all: "unset", cursor: "pointer", padding: 4, color: "#92400e", display: "flex" }}><X size={13} /></button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#9ca3af" }}>
+                    <span style={{ fontStyle: "italic" }}>Unsaved layout</span>
+                    <button onClick={saveCurrentView} style={{ all: "unset", cursor: "pointer", color: C.teal, fontWeight: 600, fontSize: 12 }}>Save view</button>
+                    <span style={{ color: "#d4d8d7" }}>·</span>
+                    <button onClick={resetView} style={{ all: "unset", cursor: "pointer", color: "#9ca3af", fontSize: 12 }}>Reset</button>
                   </div>
                 )}
               </div>
@@ -1110,7 +1111,7 @@ ${JSON.stringify(ctx, null, 2)}`,
         {mode === "ai" && <AiPanel
           aiMessages={aiMessages} aiPrompt={aiPrompt} setAiPrompt={setAiPrompt}
           aiLoading={aiLoading} aiError={aiError} setAiError={setAiError}
-          submitAi={submitAi} isListening={isListening} toggleListening={toggleListening}
+          submitAi={submitAi}
           roster={roster} copiedId={copiedId} copyEmail={copyEmail}
           expandedRecs={expandedRecs} setExpandedRecs={setExpandedRecs}
           Tip={Tip} TierBadge={TierBadge} TrustBadge={TrustBadge} Price={Price} SpeedBadge={SpeedBadge}
@@ -1421,7 +1422,7 @@ const Sect = ({ title, children }) => <div style={{ marginBottom: 18 }}><div sty
 const Row = ({ k, v }) => <div style={{ fontSize: 13, color: "#53565A", marginBottom: 4 }}><strong style={{ color: "#002631" }}>{k}</strong> — {v}</div>;
 
 /* ── AI Recommend Panel ────────────────────────────────── */
-function AiPanel({ aiMessages, aiPrompt, setAiPrompt, aiLoading, aiError, setAiError, submitAi, isListening, toggleListening, roster, copiedId, copyEmail, expandedRecs, setExpandedRecs, Tip, TierBadge, TrustBadge, Price, SpeedBadge }) {
+function AiPanel({ aiMessages, aiPrompt, setAiPrompt, aiLoading, aiError, setAiError, submitAi, roster, copiedId, copyEmail, expandedRecs, setExpandedRecs, Tip, TierBadge, TrustBadge, Price, SpeedBadge }) {
   const QUICK_STARTS = [
     { icon: Video, text: "Testimonial video" },
     { icon: Sparkles, text: "Webinar clips or editing" },
@@ -1441,7 +1442,7 @@ function AiPanel({ aiMessages, aiPrompt, setAiPrompt, aiLoading, aiError, setAiE
           <h1 style={{ fontSize: 22, fontWeight: 900, color: "#002631", marginBottom: 8, textAlign: "center" }}>What are you working on?</h1>
           <p style={{ fontSize: 14, color: "#9ca3af", marginBottom: 24, textAlign: "center" }}>Tell us about your project and we'll recommend the right partners from our roster.</p>
           <div style={{ width: "100%", marginBottom: 20 }}>
-            <PromptInput {...{ aiPrompt, setAiPrompt, aiLoading, submitAi, isListening, toggleListening }} />
+            <PromptInput aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} aiLoading={aiLoading} submitAi={submitAi} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%" }}>
             {QUICK_STARTS.map(({ icon: Icon, text }) => (
@@ -1520,7 +1521,7 @@ function AiPanel({ aiMessages, aiPrompt, setAiPrompt, aiLoading, aiError, setAiE
           </div>
           <div style={{ borderTop: "1px solid #e8efee", padding: "12px 24px", background: "#fff" }}>
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
-              <PromptInput {...{ aiPrompt, setAiPrompt, aiLoading, submitAi, isListening, toggleListening }} />
+              <PromptInput aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} aiLoading={aiLoading} submitAi={submitAi} />
             </div>
           </div>
         </>
@@ -1529,12 +1530,39 @@ function AiPanel({ aiMessages, aiPrompt, setAiPrompt, aiLoading, aiError, setAiE
   );
 }
 
-function PromptInput({ aiPrompt, setAiPrompt, aiLoading, submitAi, isListening, toggleListening }) {
+function PromptInput({ aiPrompt, setAiPrompt, aiLoading, submitAi }) {
+  const [focused, setFocused] = useState(false);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #e8efee", borderRadius: 8, padding: "8px 10px", background: "#fff" }}>
-      <input value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submitAi(); }} placeholder="e.g. I need an animated Google display ad designed in the next two weeks" style={{ flex: 1, all: "unset", fontSize: 14, color: "#002631", fontFamily: "inherit" }} />
-      <button onClick={toggleListening} title="Voice (Chrome only)" style={{ all: "unset", cursor: "pointer", padding: 8, display: "flex", color: isListening ? "#dc2626" : "#9ca3af" }}>{isListening ? <MicOff size={16} /> : <Mic size={16} />}</button>
-      <button onClick={submitAi} disabled={aiLoading || !aiPrompt.trim()} style={{ all: "unset", cursor: aiLoading || !aiPrompt.trim() ? "not-allowed" : "pointer", padding: "8px 14px", background: aiLoading || !aiPrompt.trim() ? "#d4d8d7" : "#007377", color: "#fff", borderRadius: 5, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}><Send size={13} />Send</button>
+    <div style={{
+      display: "flex", alignItems: "flex-end", gap: 8,
+      border: `1px solid ${focused ? "#007377" : "#e8efee"}`,
+      borderRadius: 10, padding: "10px 12px", background: "#fff",
+      boxShadow: focused ? "0 0 0 3px rgba(0,115,119,0.08)" : "0 1px 3px rgba(0,38,49,0.04)",
+      transition: "border-color 0.15s, box-shadow 0.15s",
+    }}>
+      <textarea
+        value={aiPrompt}
+        onChange={e => setAiPrompt(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitAi(); } }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder="Describe your project..."
+        rows={1}
+        style={{
+          flex: 1, minWidth: 0, all: "unset", fontSize: 14, color: "#002631", fontFamily: "inherit",
+          lineHeight: 1.4, padding: "4px 2px", resize: "none", overflowY: "auto", maxHeight: 120,
+          display: "block", width: "100%",
+        }}
+      />
+      <button onClick={submitAi} disabled={aiLoading || !aiPrompt.trim()} style={{
+        all: "unset", cursor: aiLoading || !aiPrompt.trim() ? "not-allowed" : "pointer",
+        padding: "7px 14px",
+        background: aiLoading || !aiPrompt.trim() ? "#d4d8d7" : "#007377",
+        color: "#fff", borderRadius: 6, fontSize: 13, fontWeight: 700,
+        display: "flex", alignItems: "center", gap: 5,
+        transition: "background 0.15s",
+        flexShrink: 0,
+      }}>{aiLoading ? "..." : <><Send size={13} />Send</>}</button>
     </div>
   );
 }
