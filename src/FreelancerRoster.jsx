@@ -353,8 +353,31 @@ export default function FreelancerRoster() {
       const txt = tip.querySelector(".tip-text");
       if (!txt) return;
       const r = tip.getBoundingClientRect();
-      txt.style.setProperty("--tip-x", (r.left + r.width / 2) + "px");
-      txt.style.setProperty("--tip-y", r.top + "px");
+      // Measure tooltip without showing it
+      const prevVis = txt.style.visibility;
+      const prevDisp = txt.style.display;
+      txt.style.visibility = "hidden";
+      txt.style.display = "block";
+      const tipRect = txt.getBoundingClientRect();
+      const tooltipW = tipRect.width;
+      const tooltipH = tipRect.height;
+      txt.style.visibility = prevVis;
+      txt.style.display = prevDisp;
+      // Center horizontally over trigger, clamp to viewport (8px margins)
+      let cx = r.left + r.width / 2 - tooltipW / 2;
+      cx = Math.max(8, Math.min(cx, window.innerWidth - tooltipW - 8));
+      // Default: position above the trigger
+      let cy = r.top - tooltipH - 8;
+      // If too high (would be clipped by top), flip below
+      if (cy < 8) {
+        cy = r.bottom + 8;
+        // If also too low (rare), clamp to viewport
+        if (cy + tooltipH > window.innerHeight - 8) {
+          cy = Math.max(8, window.innerHeight - tooltipH - 8);
+        }
+      }
+      txt.style.setProperty("--tip-x", cx + "px");
+      txt.style.setProperty("--tip-y", cy + "px");
     };
     document.addEventListener("mouseover", onMove, true);
     return () => document.removeEventListener("mouseover", onMove, true);
@@ -750,24 +773,28 @@ ${JSON.stringify(ctx, null, 2)}`,
 
   /* ── tiny components ─────────────────────────────────── */
   const Tip = ({ text, children }) => <span className="tip" style={{ position: "relative", display: "inline-flex" }}>{children}<span className="tip-text">{text}</span></span>;
-  const TierBadge = ({ tier }) => <Tip text={TIER[tier]?.desc || ""}><span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 3, color: "#71717a", background: "#f4f4f5", cursor: "help" }}>{TIER[tier]?.label || tier}</span></Tip>;
-  const TrustBadge = ({ trust }) => { const t = TRUST[trust] || {}; return <Tip text={t.desc || ""}><span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 3, color: t.color, background: t.bg, cursor: "help" }}>{t.label || trust}</span></Tip>; };
+  const TierBadge = ({ tier }) => <Tip text={TIER[tier]?.desc || ""}><span style={{ display: "inline-block", fontSize: 12, fontWeight: 600, padding: "3px 9px", borderRadius: 4, color: "#5a6160", background: "#eef0ef", cursor: "help", letterSpacing: "0.01em" }}>{TIER[tier]?.label || tier}</span></Tip>;
+  const TrustBadge = ({ trust }) => { const t = TRUST[trust] || {}; return <Tip text={t.desc || ""}><span style={{ display: "inline-block", fontSize: 12, fontWeight: 600, padding: "3px 9px", borderRadius: 4, color: t.color, background: t.bg, cursor: "help", letterSpacing: "0.01em" }}>{t.label || trust}</span></Tip>; };
   const Price = ({ level }) => <Tip text={PRICE_DESC[level]}><span style={{ fontSize: 14, letterSpacing: -0.5, cursor: "help" }}>{[1,2,3,4].map(i => <span key={i} style={{ color: i <= level ? C.navy : "#d4d8d7", fontWeight: i <= level ? 900 : 400 }}>$</span>)}</span></Tip>;
-  const SpeedBadge = ({ level }) => { const s = SPEED[level] || {}; return <Tip text={s.desc || ""}><span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: s.color, cursor: "help" }}>{level === "fast" ? <Zap size={11} /> : <Clock size={11} />}{s.label}</span></Tip>; };
-  const RespBadge = ({ level }) => { if (!level || level === "neutral") return <span style={{ color: "#c8cecd", fontSize: 11 }}>—</span>; const r = RESPONSIVENESS[level]; return <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 3, color: r.color, background: r.bg }}>{r.label}</span>; };
+  const SpeedBadge = ({ level }) => { const s = SPEED[level] || {}; return <Tip text={s.desc || ""}><span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: s.color, cursor: "help" }}>{level === "fast" ? <Zap size={12} /> : <Clock size={12} />}{s.label}</span></Tip>; };
+  const RespBadge = ({ level }) => { if (!level || level === "neutral") return <span style={{ color: "#c8cecd", fontSize: 13 }}>—</span>; const r = RESPONSIVENESS[level]; return <span style={{ display: "inline-block", fontSize: 12, fontWeight: 600, padding: "3px 9px", borderRadius: 4, color: r.color, background: r.bg, letterSpacing: "0.01em" }}>{r.label}</span>; };
 
   const sortItemStyle = (active) => ({ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px", fontSize: 13, color: active ? C.teal : C.body, fontWeight: active ? 700 : 400, background: active ? C.bg : "transparent", boxSizing: "border-box" });
+  const pillStyle = (variant) => {
+    if (variant === "teal") return { fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 4, background: "#ecfafa", color: "#007377", whiteSpace: "nowrap", letterSpacing: "0.01em" };
+    return { fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 4, background: "#eef0ef", color: "#5a6160", whiteSpace: "nowrap", letterSpacing: "0.01em" };
+  };
 
   /* ── cell renderer ───────────────────────────────────── */
   const renderCell = (col, p) => {
     switch (col.key) {
       case "name":
         return (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden" }}>
-            {p.star && <Tip text="Superstar — top recommendation."><Star size={14} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /></Tip>}
-            <a href={p.website || undefined} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontWeight: 700, fontSize: 14, color: C.navy, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, overflow: "hidden" }}>
+            {p.star && <Tip text="Superstar — top recommendation."><Star size={15} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /></Tip>}
+            <a href={p.website || undefined} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontWeight: 700, fontSize: 14, color: C.navy, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
               {p.name}
-              {p.website && <Tip text="Open website in new tab"><span className="lv-row-icon-hover" style={{ display: "inline-flex", padding: 3, borderRadius: 3, color: C.teal, background: "rgba(0,115,119,0.08)", flexShrink: 0 }}><ExternalLink size={12} /></span></Tip>}
+              {p.website && <Tip text="Open website in new tab"><span className="lv-row-icon-hover" style={{ display: "inline-flex", padding: 4, borderRadius: 4, color: C.teal, background: "rgba(0,115,119,0.08)", flexShrink: 0 }}><ExternalLink size={12} /></span></Tip>}
             </a>
           </div>
         );
@@ -777,7 +804,7 @@ ${JSON.stringify(ctx, null, 2)}`,
             <span style={{ fontSize: 13, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
             {!p.email.toLowerCase().includes("fiverr") && (
               <Tip text={copiedId === p.id ? "Copied!" : "Copy email"}>
-                <button onClick={(e) => { e.stopPropagation(); copyEmail(p.id, p.email); }} className="lv-row-icon-hover" style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "inline-flex", padding: 3, borderRadius: 3, color: copiedId === p.id ? "#fff" : C.teal, background: copiedId === p.id ? "#059669" : "rgba(0,115,119,0.08)" }}>
+                <button onClick={(e) => { e.stopPropagation(); copyEmail(p.id, p.email); }} className="lv-row-icon-hover" style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "inline-flex", padding: 4, borderRadius: 4, color: copiedId === p.id ? "#fff" : C.teal, background: copiedId === p.id ? "#059669" : "rgba(0,115,119,0.08)" }}>
                   {copiedId === p.id ? <Check size={12} /> : <Copy size={12} />}
                 </button>
               </Tip>
@@ -785,7 +812,7 @@ ${JSON.stringify(ctx, null, 2)}`,
           </div>
         );
       case "bestAt":
-        return <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{(p.bestAt || []).map(b => <span key={b} style={{ fontSize: 12, fontWeight: 600, color: C.body, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b}</span>)}</div>;
+        return <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{(p.bestAt || []).map(b => <span key={b} style={pillStyle("teal")}>{b}</span>)}</div>;
       case "tier": return <TierBadge tier={p.tier} />;
       case "trust": return <TrustBadge trust={p.trust} />;
       case "price": return <Price level={p.price} />;
@@ -793,15 +820,15 @@ ${JSON.stringify(ctx, null, 2)}`,
       case "responsiveness": return <RespBadge level={p.responsiveness} />;
       case "approvedVendor":
         return p.approvedVendor
-          ? <Tip text="Cleared by risk/compliance, bank info on file"><span style={{ fontSize: 11, fontWeight: 700, color: "#059669", display: "inline-flex", alignItems: "center", gap: 3, cursor: "help" }}><Check size={11} />Approved</span></Tip>
-          : <Tip text="Still needs compliance review and payment setup"><span style={{ fontSize: 11, color: "#b0b5b4", cursor: "help" }}>Needs setup</span></Tip>;
-      case "location": return <span style={{ fontSize: 12, color: C.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.location || "—"}</span>;
+          ? <Tip text="Cleared by risk/compliance, bank info on file"><span style={{ fontSize: 12, fontWeight: 700, color: "#059669", display: "inline-flex", alignItems: "center", gap: 4, cursor: "help" }}><Check size={13} />Approved</span></Tip>
+          : <Tip text="Still needs compliance review and payment setup"><span style={{ fontSize: 12, color: "#9ca3af", cursor: "help" }}>Needs setup</span></Tip>;
+      case "location": return <span style={{ fontSize: 13, color: C.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.location || "—"}</span>;
       case "category":
-        return <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{(p.categories || []).map(c => <span key={c} style={{ fontSize: 11, padding: "1px 7px", borderRadius: 99, background: "#eef0ef", color: "#71717a", textTransform: "capitalize" }}>{c}</span>)}</div>;
+        return <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{(p.categories || []).map(c => <span key={c} style={{ ...pillStyle("gray"), textTransform: "capitalize" }}>{c}</span>)}</div>;
       case "skills":
-        return <div style={{ display: "flex", flexWrap: "wrap", gap: 3, overflow: "hidden", maxHeight: 60 }}>{(p.skills || []).slice(0, 6).map(s => <span key={s} className="lv-cell-skills-pill" style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "#eef0ef", color: "#71717a", whiteSpace: "nowrap" }}>{s}</span>)}{p.skills && p.skills.length > 6 && <span style={{ fontSize: 10, color: "#9ca3af" }}>+{p.skills.length - 6}</span>}</div>;
+        return <div style={{ display: "flex", flexWrap: "wrap", gap: 4, overflow: "hidden", maxHeight: 60 }}>{(p.skills || []).slice(0, 6).map(s => <span key={s} className="lv-cell-skills-pill" style={pillStyle("gray")}>{s}</span>)}{p.skills && p.skills.length > 6 && <span style={{ fontSize: 11, color: "#9ca3af", alignSelf: "center" }}>+{p.skills.length - 6}</span>}</div>;
       case "notes":
-        return <span style={{ fontSize: 12, color: C.body, lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>{p.notes || "—"}</span>;
+        return <span style={{ fontSize: 13, color: C.body, lineHeight: 1.45, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>{p.notes || "—"}</span>;
       default: return null;
     }
   };
@@ -816,14 +843,14 @@ ${JSON.stringify(ctx, null, 2)}`,
           visibility: hidden; opacity: 0; transition: opacity 0.15s;
           position: fixed;
           background: #002631; color: #fff;
-          padding: 6px 10px; border-radius: 4px;
-          font-size: 11px; white-space: normal;
-          max-width: 240px; width: max-content;
+          padding: 8px 12px; border-radius: 6px;
+          font-size: 12px; white-space: normal;
+          max-width: 260px; width: max-content;
           pointer-events: none; z-index: 9999;
-          font-weight: 400; line-height: 1.4;
+          font-weight: 400; line-height: 1.45;
           letter-spacing: normal; text-transform: none;
           left: var(--tip-x, 0); top: var(--tip-y, 0);
-          transform: translate(-50%, -100%) translateY(-6px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         .tip:hover .tip-text { visibility: visible; opacity: 1; }
         .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #002631; color: #fff; padding: 10px 16px; border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 6px; z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
@@ -875,7 +902,7 @@ ${JSON.stringify(ctx, null, 2)}`,
                   </button>
                   {sortDrop && (
                     <div className="lv-sort-dropdown" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 240, padding: "6px 0" }}>
-                      <div style={{ padding: "6px 14px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Sort order</div>
+                      <div style={{ padding: "6px 14px", fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Sort order</div>
                       <button onClick={() => { setSortKey("custom"); setSortDrop(false); }} style={sortItemStyle(sortKey === "custom")}>
                         {sortKey === "custom" ? <Check size={13} color={C.teal} /> : <span style={{ width: 13 }} />}
                         Default <span style={{ marginLeft: 4, fontSize: 11, color: "#9ca3af" }}>(stars first)</span>
@@ -916,7 +943,7 @@ ${JSON.stringify(ctx, null, 2)}`,
                   </Tip>
                   {openColPanel && (
                     <div className="lv-col-panel" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 240, padding: "8px 0" }}>
-                      <div style={{ padding: "4px 14px 8px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Columns</div>
+                      <div style={{ padding: "4px 14px 8px", fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Columns</div>
                       {COLUMNS.filter(c => c.hideable).map(c => {
                         const visible = !hidden.has(c.key);
                         return (
@@ -941,7 +968,7 @@ ${JSON.stringify(ctx, null, 2)}`,
                   </button>
                 )}
                 <button onClick={() => setAddingNew(true)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", fontSize: 13, fontWeight: 700, borderRadius: 5, border: "none", background: C.teal, color: "#fff", cursor: "pointer" }}>
-                  <Plus size={14} />Add freelancer
+                  <Plus size={14} />Add
                 </button>
               </div>
             </div>
@@ -1112,7 +1139,7 @@ ${JSON.stringify(ctx, null, 2)}`,
             {col.hasQuickFilter && col.options && (
               <>
                 {col.sortable && <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />}
-                <div style={{ padding: "6px 12px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Show only</div>
+                <div style={{ padding: "6px 12px", fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Show only</div>
                 {Object.entries(col.options).map(([k, v]) => {
                   const active = (filters[col.key] || []).includes(k);
                   return (
@@ -1127,7 +1154,7 @@ ${JSON.stringify(ctx, null, 2)}`,
             {col.key === "approvedVendor" && (
               <>
                 <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />
-                <div style={{ padding: "6px 12px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Show only</div>
+                <div style={{ padding: "6px 12px", fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Show only</div>
                 {[["yes", "Approved"], ["no", "Needs setup"]].map(([k, lbl]) => {
                   const active = (filters.approvedVendor || []).includes(k);
                   return (
