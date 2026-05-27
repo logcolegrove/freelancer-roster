@@ -248,6 +248,7 @@ const LS = {
   hidden:   "freelancer-roster.v2.hidden",
   order:    "freelancer-roster.v2.order",
   customOrder: "freelancer-roster.v2.customOrder",
+  savedView: "freelancer-roster.v2.savedView",
 };
 
 function loadLS(key, fallback) {
@@ -282,6 +283,7 @@ export default function FreelancerRoster() {
     return defaults;
   });
   const [customRowOrder, setCustomRowOrder] = useState(() => loadLS(LS.customOrder, null));
+  const [savedView, setSavedView] = useState(() => loadLS(LS.savedView, null));
 
   /* ── sort/filter/search state ─────────────────────────── */
   const [sortKey, setSortKey] = useState("custom"); // 'custom' = superstar-first then alpha
@@ -363,10 +365,7 @@ export default function FreelancerRoster() {
   }, [columnOrder, hidden]);
 
   const gridTemplate = useMemo(() => {
-    return [
-      ...visibleColumns.map(c => `${widths[c.key]}px`),
-      "44px", // trailing + slot
-    ].join(" ");
+    return visibleColumns.map(c => `${widths[c.key]}px`).join(" ");
   }, [visibleColumns, widths]);
 
   /* ── derived: filtered + sorted rows ──────────────────── */
@@ -441,6 +440,43 @@ export default function FreelancerRoster() {
     for (const vals of Object.values(filters)) n += (vals || []).length;
     return n;
   }, [filters]);
+
+  // Detect if the current view differs from the saved default
+  const viewChanged = useMemo(() => {
+    if (!savedView) {
+      // No saved view yet — show "Save view" if user has customized anything
+      const defaultWidths = Object.fromEntries(COLUMNS.map(c => [c.key, c.defaultWidth]));
+      const defaultOrder = COLUMNS.map(c => c.key);
+      const defaultHidden = COLUMNS.filter(c => !DEFAULT_VISIBLE.includes(c.key) && c.hideable).map(c => c.key);
+      const widthsChanged = COLUMNS.some(c => widths[c.key] !== c.defaultWidth);
+      const orderChanged = JSON.stringify(columnOrder) !== JSON.stringify(defaultOrder);
+      const hiddenChanged = JSON.stringify([...hidden].sort()) !== JSON.stringify(defaultHidden.sort());
+      return widthsChanged || orderChanged || hiddenChanged;
+    }
+    return (
+      JSON.stringify(widths) !== JSON.stringify(savedView.widths) ||
+      JSON.stringify(columnOrder) !== JSON.stringify(savedView.columnOrder) ||
+      JSON.stringify([...hidden].sort()) !== JSON.stringify([...(savedView.hidden || [])].sort())
+    );
+  }, [savedView, widths, columnOrder, hidden]);
+
+  const saveCurrentView = () => {
+    const view = { widths, columnOrder, hidden: [...hidden] };
+    setSavedView(view);
+    saveLS(LS.savedView, view);
+  };
+  const resetView = () => {
+    if (savedView) {
+      setWidths(savedView.widths);
+      setColumnOrder(savedView.columnOrder);
+      setHidden(new Set(savedView.hidden || []));
+    } else {
+      const defaultWidths = Object.fromEntries(COLUMNS.map(c => [c.key, c.defaultWidth]));
+      setWidths(defaultWidths);
+      setColumnOrder(COLUMNS.map(c => c.key));
+      setHidden(new Set(COLUMNS.filter(c => !DEFAULT_VISIBLE.includes(c.key) && c.hideable).map(c => c.key)));
+    }
+  };
 
   /* ── column drag-reorder ──────────────────────────────── */
   const beginColumnDrag = (key, e) => {
@@ -603,10 +639,8 @@ export default function FreelancerRoster() {
   };
   const clearAllFilters = () => { setFilters({}); setSearch(""); };
   const deleteFreelancer = (id) => {
-    if (window.confirm("Delete this freelancer?")) {
-      setRoster(r => r.filter(p => p.id !== id));
-      if (customRowOrder) setCustomRowOrder(customRowOrder.filter(rid => rid !== id));
-    }
+    setRoster(r => r.filter(p => p.id !== id));
+    if (customRowOrder) setCustomRowOrder(customRowOrder.filter(rid => rid !== id));
   };
   const saveFreelancer = (data, isNew) => {
     if (isNew) {
@@ -859,8 +893,36 @@ ${JSON.stringify(ctx, null, 2)}`,
                     </div>
                   )}
                 </div>
+                {viewChanged && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 4px 4px 10px", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 99, fontSize: 12 }}>
+                    <span style={{ color: "#92400e", fontWeight: 600 }}>View changed</span>
+                    <button onClick={saveCurrentView} style={{ all: "unset", cursor: "pointer", padding: "4px 10px", background: "#fff", color: "#92400e", fontSize: 12, fontWeight: 700, borderRadius: 99, border: "1px solid #fcd34d" }}>Save view</button>
+                    <button onClick={resetView} title="Discard changes" style={{ all: "unset", cursor: "pointer", padding: 4, color: "#92400e", display: "flex" }}><X size={13} /></button>
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ position: "relative" }}>
+                  <Tip text="Show/hide columns">
+                    <button className="lv-col-panel-trigger" onClick={(e) => { e.stopPropagation(); setOpenColPanel(!openColPanel); }} style={{ display: "flex", alignItems: "center", padding: 8, borderRadius: 5, border: `1px solid ${C.rule}`, cursor: "pointer", background: openColPanel ? C.bg : C.white, color: C.body }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v18H3z"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+                    </button>
+                  </Tip>
+                  {openColPanel && (
+                    <div className="lv-col-panel" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 240, padding: "8px 0" }}>
+                      <div style={{ padding: "4px 14px 8px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Columns</div>
+                      {COLUMNS.filter(c => c.hideable).map(c => {
+                        const visible = !hidden.has(c.key);
+                        return (
+                          <button key={c.key} onClick={() => toggleHidden(c.key)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 14px", fontSize: 13, color: C.body, boxSizing: "border-box" }}>
+                            <span style={{ width: 16, height: 16, border: `1.5px solid ${visible ? C.teal : "#d4d8d7"}`, borderRadius: 3, background: visible ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{visible && <Check size={11} color="#fff" />}</span>
+                            {c.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 {searchOpen ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 4, background: C.bg, borderRadius: 5, padding: "4px 8px", border: `1px solid ${C.rule}` }}>
                     <Search size={14} style={{ color: "#9ca3af" }} />
@@ -883,7 +945,7 @@ ${JSON.stringify(ctx, null, 2)}`,
               <div style={{ minWidth: "fit-content" }}>
 
                 {/* Header row */}
-                <div style={{ display: "grid", gridTemplateColumns: gridTemplate, background: C.bg, borderBottom: `1px solid ${C.rule}`, position: "relative", zIndex: 30 }}>
+                <div style={{ display: "grid", gridTemplateColumns: gridTemplate, background: "#fafbfb", borderBottom: `1px solid ${C.rule}`, position: "relative", zIndex: 30 }}>
                   {visibleColumns.map((col, i) => {
                     const isDragged = colDrag?.key === col.key;
                     const reorderableIdx = visibleColumns.filter(c => !c.pinned).findIndex(c => c.key === col.key);
@@ -900,10 +962,9 @@ ${JSON.stringify(ctx, null, 2)}`,
                         className="lv-h-cell"
                         onPointerDown={(e) => beginColumnDrag(col.key, e)}
                         style={{
-                          padding: "10px 12px",
+                          padding: "12px 14px",
                           fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
                           color: sortKey === col.key ? C.teal : "#9ca3af",
-                          borderRight: `1px solid ${C.rule}`,
                           cursor: col.pinned ? "default" : "grab",
                           display: "flex", alignItems: "center", justifyContent: "space-between",
                           transform: `translateX(${translateX}px)`,
@@ -977,27 +1038,6 @@ ${JSON.stringify(ctx, null, 2)}`,
                       </div>
                     );
                   })}
-
-                  {/* Trailing + slot */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRight: `1px solid ${C.rule}`, position: "relative" }}>
-                    <button className="lv-col-panel-trigger" onClick={(e) => { e.stopPropagation(); setOpenColPanel(!openColPanel); }} style={{ all: "unset", cursor: "pointer", padding: 6, borderRadius: 4, color: "#9ca3af", display: "flex" }}>
-                      <Plus size={14} />
-                    </button>
-                    {openColPanel && (
-                      <div className="lv-col-panel" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 220, padding: "6px 0", textTransform: "none", letterSpacing: "normal" }}>
-                        <div style={{ padding: "6px 12px", fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Columns</div>
-                        {COLUMNS.filter(c => c.hideable).map(c => {
-                          const visible = !hidden.has(c.key);
-                          return (
-                            <button key={c.key} onClick={() => toggleHidden(c.key)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 12px", fontSize: 13, color: C.body, boxSizing: "border-box" }}>
-                              <span style={{ width: 14, height: 14, border: `1.5px solid ${visible ? C.teal : "#d4d8d7"}`, borderRadius: 3, background: visible ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{visible && <Check size={10} color="#fff" />}</span>
-                              {c.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 {/* Rows */}
@@ -1026,6 +1066,13 @@ ${JSON.stringify(ctx, null, 2)}`,
                       key={p.id}
                       ref={el => { if (el) rowRefs.current.set(p.id, el); }}
                       onPointerDown={(e) => beginRowDrag(p.id, e)}
+                      onClick={(e) => {
+                        // Only open drawer if not just finishing a drag
+                        if (rowDragJustEnded.current) return;
+                        // Don't open if clicking a link, button, or copy icon
+                        if (e.target.closest("a, button")) return;
+                        setEditingId(p.id);
+                      }}
                       className="lv-row"
                       style={{
                         display: "grid", gridTemplateColumns: gridTemplate,
@@ -1037,24 +1084,14 @@ ${JSON.stringify(ctx, null, 2)}`,
                         zIndex: isDragged ? 10 : 1,
                         borderTop: dropIndicatorAbove ? `3px solid ${C.teal}` : "1px solid transparent",
                         transition: isDragged ? "none" : "background 0.15s",
+                        cursor: "pointer",
                       }}
                     >
                       {visibleColumns.map((col) => (
-                        <div key={col.key} style={{ padding: "12px", borderRight: `1px solid ${C.rule}`, display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden", position: "relative" }}>
+                        <div key={col.key} style={{ padding: "12px 14px", display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden", position: "relative" }}>
                           {renderCell(col, p)}
-                          {col.key === "name" && (
-                            <div className="lv-row-actions" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", display: "flex", gap: 3, background: C.white, padding: "3px 5px", borderRadius: 5, boxShadow: "0 2px 6px rgba(0,38,49,0.12)", border: `1px solid ${C.rule}` }}>
-                              <Tip text="Edit">
-                                <button onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }} style={{ all: "unset", cursor: "pointer", display: "flex", padding: 5, borderRadius: 3, color: C.body, transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = C.bg} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><Pencil size={13} /></button>
-                              </Tip>
-                              <Tip text="Delete">
-                                <button onClick={(e) => { e.stopPropagation(); deleteFreelancer(p.id); }} style={{ all: "unset", cursor: "pointer", display: "flex", padding: 5, borderRadius: 3, color: "#dc2626", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = "#fef2f2"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><Trash2 size={13} /></button>
-                              </Tip>
-                            </div>
-                          )}
                         </div>
                       ))}
-                      <div style={{ borderRight: `1px solid ${C.rule}` }} />
                     </div>
                   );
                 })}
@@ -1093,6 +1130,7 @@ ${JSON.stringify(ctx, null, 2)}`,
           initial={addingNew ? null : roster.find(r => r.id === editingId)}
           onSave={(d) => saveFreelancer(d, addingNew)}
           onCancel={() => { setEditingId(null); setAddingNew(false); }}
+          onDelete={deleteFreelancer}
         />
       )}
 
@@ -1102,7 +1140,7 @@ ${JSON.stringify(ctx, null, 2)}`,
 }
 
 /* ── Edit/Add Right-Side Drawer ────────────────────────── */
-function EditDrawer({ initial, onSave, onCancel }) {
+function EditDrawer({ initial, onSave, onCancel, onDelete }) {
   const blank = { name: "", email: "", website: "", location: "", categories: [], skills: [], bestAt: [], tier: "MID", trust: "NEW", price: 2, speed: "standard", responsiveness: "neutral", approvedVendor: false, star: false, notes: "" };
   const [form, setForm] = useState(initial || blank);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -1224,6 +1262,14 @@ function EditDrawer({ initial, onSave, onCancel }) {
               <textarea value={form.notes || ""} onChange={e => set("notes", e.target.value)} placeholder="Anything else worth knowing…" style={{ ...inputS, minHeight: 80, fontFamily: "inherit", resize: "vertical" }} />
             </Field>
           </Section>
+
+          {!isNew && onDelete && (
+            <Section title="Danger zone">
+              <button onClick={() => { if (window.confirm(`Delete ${form.name}? This cannot be undone.`)) { onDelete(initial.id); onCancel(); } }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 5, cursor: "pointer" }}>
+                <Trash2 size={13} />Delete this freelancer
+              </button>
+            </Section>
+          )}
         </div>
 
         {/* Footer */}
