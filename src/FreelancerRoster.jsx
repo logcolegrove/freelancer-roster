@@ -349,9 +349,13 @@ export default function FreelancerRoster() {
   /* ── global tooltip system ────────────────────────────── */
   useEffect(() => {
     let measureEl = null;
+    let activeTip = null; // currently-hovered tip element
     const onEnter = (e) => {
       const tip = e.target.closest && e.target.closest(".tip");
       if (!tip) return;
+      // If we're already showing this tip, don't recompute
+      if (tip === activeTip) return;
+      activeTip = tip;
       const text = tip.getAttribute("data-tip");
       if (!text) return;
       const r = tip.getBoundingClientRect();
@@ -375,19 +379,20 @@ export default function FreelancerRoster() {
       }
       setTooltip({ text, x: cx, y: cy });
     };
-    const onLeave = (e) => {
-      const tip = e.target.closest && e.target.closest(".tip");
-      if (!tip) return;
-      // Check if we're leaving to a non-tip element
-      const toEl = e.relatedTarget;
-      if (toEl && toEl.closest && toEl.closest(".tip") === tip) return;
-      setTooltip(null);
+    // Whenever the mouse moves, check if we've left the active tip
+    const onMove = (e) => {
+      if (!activeTip) return;
+      const stillInsideTip = e.target.closest && e.target.closest(".tip") === activeTip;
+      if (!stillInsideTip) {
+        activeTip = null;
+        setTooltip(null);
+      }
     };
     document.addEventListener("mouseover", onEnter, true);
-    document.addEventListener("mouseout", onLeave, true);
+    document.addEventListener("mousemove", onMove, true);
     return () => {
       document.removeEventListener("mouseover", onEnter, true);
-      document.removeEventListener("mouseout", onLeave, true);
+      document.removeEventListener("mousemove", onMove, true);
       if (measureEl && measureEl.parentNode) measureEl.parentNode.removeChild(measureEl);
     };
   }, []);
