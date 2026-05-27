@@ -717,6 +717,8 @@ ${JSON.stringify(ctx, null, 2)}`,
   const SpeedBadge = ({ level }) => { const s = SPEED[level] || {}; return <Tip text={s.desc || ""}><span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: s.color, cursor: "help" }}>{level === "fast" ? <Zap size={11} /> : <Clock size={11} />}{s.label}</span></Tip>; };
   const RespBadge = ({ level }) => { if (!level || level === "neutral") return <span style={{ color: "#c8cecd", fontSize: 11 }}>—</span>; const r = RESPONSIVENESS[level]; return <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 3, color: r.color, background: r.bg }}>{r.label}</span>; };
 
+  const sortItemStyle = (active) => ({ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px", fontSize: 13, color: active ? C.teal : C.body, fontWeight: active ? 700 : 400, background: active ? C.bg : "transparent", boxSizing: "border-box" });
+
   /* ── cell renderer ───────────────────────────────────── */
   const renderCell = (col, p) => {
     switch (col.key) {
@@ -821,7 +823,7 @@ ${JSON.stringify(ctx, null, 2)}`,
         {mode === "browse" && (
           <div>
             {/* Toolbar */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 32px", borderBottom: `1px solid ${C.rule}`, gap: 12, position: "sticky", top: 64, zIndex: 35, background: C.white }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 32px", borderBottom: `1px solid ${C.rule}`, gap: 12, background: C.white }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button onClick={() => setShowFiltersModal(true)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", fontSize: 13, fontWeight: 600, borderRadius: 5, border: `1px solid ${C.rule}`, background: activeFilterCount ? "#ecfafa" : C.white, color: activeFilterCount ? C.teal : C.body, cursor: "pointer" }}>
                   <Filter size={13} />Filters{activeFilterCount > 0 && <span style={{ background: C.teal, color: "#fff", borderRadius: 99, padding: "0 6px", fontSize: 11, marginLeft: 2 }}>{activeFilterCount}</span>}
@@ -833,25 +835,27 @@ ${JSON.stringify(ctx, null, 2)}`,
                     <ChevronDown size={12} style={{ color: "#9ca3af", opacity: 0.6 }} />
                   </button>
                   {sortDrop && (
-                    <div className="lv-sort-dropdown" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 240, padding: "6px 0", maxHeight: 380, overflowY: "auto" }}>
-                      <button onClick={() => { setSortKey("custom"); setSortDrop(false); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px", fontSize: 13, color: sortKey === "custom" ? C.teal : C.body, fontWeight: sortKey === "custom" ? 700 : 400, background: sortKey === "custom" ? C.bg : "transparent", boxSizing: "border-box" }}>
-                        {sortKey === "custom" && <Check size={13} color={C.teal} />}
-                        <span style={{ marginLeft: sortKey === "custom" ? 0 : 21 }}>Custom (drag rows to reorder)</span>
+                    <div className="lv-sort-dropdown" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 240, padding: "6px 0" }}>
+                      <div style={{ padding: "6px 14px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Sort order</div>
+                      <button onClick={() => { setSortKey("custom"); setSortDrop(false); }} style={sortItemStyle(sortKey === "custom")}>
+                        {sortKey === "custom" ? <Check size={13} color={C.teal} /> : <span style={{ width: 13 }} />}
+                        Default <span style={{ marginLeft: 4, fontSize: 11, color: "#9ca3af" }}>(stars first)</span>
                       </button>
-                      <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />
-                      <div style={{ padding: "6px 14px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Sort by column</div>
-                      {COLUMNS.filter(c => c.sortable).map(col => (
-                        <div key={col.key}>
-                          <button onClick={() => { setSortKey(col.key); setSortDir("asc"); setSortDrop(false); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", fontSize: 13, color: sortKey === col.key && sortDir === "asc" ? C.teal : C.body, fontWeight: sortKey === col.key && sortDir === "asc" ? 700 : 400, background: sortKey === col.key && sortDir === "asc" ? C.bg : "transparent", boxSizing: "border-box" }}>
-                            {sortKey === col.key && sortDir === "asc" ? <Check size={13} color={C.teal} /> : <ArrowUp size={13} style={{ color: "#9ca3af" }} />}
-                            {col.label} ascending
+                      {sortKey !== "custom" && (
+                        <>
+                          <button onClick={() => { setSortDir("asc"); setSortDrop(false); }} style={sortItemStyle(sortDir === "asc")}>
+                            {sortDir === "asc" ? <Check size={13} color={C.teal} /> : <ArrowUp size={13} style={{ color: "#9ca3af" }} />}
+                            Ascending {COLUMNS.find(c => c.key === sortKey)?.label && <span style={{ marginLeft: 4, fontSize: 11, color: "#9ca3af" }}>by {COLUMNS.find(c => c.key === sortKey).label}</span>}
                           </button>
-                          <button onClick={() => { setSortKey(col.key); setSortDir("desc"); setSortDrop(false); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", fontSize: 13, color: sortKey === col.key && sortDir === "desc" ? C.teal : C.body, fontWeight: sortKey === col.key && sortDir === "desc" ? 700 : 400, background: sortKey === col.key && sortDir === "desc" ? C.bg : "transparent", boxSizing: "border-box" }}>
-                            {sortKey === col.key && sortDir === "desc" ? <Check size={13} color={C.teal} /> : <ArrowDown size={13} style={{ color: "#9ca3af" }} />}
-                            {col.label} descending
+                          <button onClick={() => { setSortDir("desc"); setSortDrop(false); }} style={sortItemStyle(sortDir === "desc")}>
+                            {sortDir === "desc" ? <Check size={13} color={C.teal} /> : <ArrowDown size={13} style={{ color: "#9ca3af" }} />}
+                            Descending {COLUMNS.find(c => c.key === sortKey)?.label && <span style={{ marginLeft: 4, fontSize: 11, color: "#9ca3af" }}>by {COLUMNS.find(c => c.key === sortKey).label}</span>}
                           </button>
-                        </div>
-                      ))}
+                        </>
+                      )}
+                      {sortKey === "custom" && (
+                        <div style={{ padding: "8px 14px", fontSize: 11, color: "#9ca3af", fontStyle: "italic" }}>To sort by a column, click that column's header.</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -879,7 +883,7 @@ ${JSON.stringify(ctx, null, 2)}`,
               <div style={{ minWidth: "fit-content" }}>
 
                 {/* Header row */}
-                <div style={{ display: "grid", gridTemplateColumns: gridTemplate, background: C.bg, borderBottom: `1px solid ${C.rule}`, position: "sticky", top: 117, zIndex: 30, boxShadow: "0 1px 0 #e8efee" }}>
+                <div style={{ display: "grid", gridTemplateColumns: gridTemplate, background: C.bg, borderBottom: `1px solid ${C.rule}`, position: "relative", zIndex: 30 }}>
                   {visibleColumns.map((col, i) => {
                     const isDragged = colDrag?.key === col.key;
                     const reorderableIdx = visibleColumns.filter(c => !c.pinned).findIndex(c => c.key === col.key);
