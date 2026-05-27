@@ -293,6 +293,7 @@ export default function FreelancerRoster() {
 
   /* ── ui state ─────────────────────────────────────────── */
   const [openHeaderMenu, setOpenHeaderMenu] = useState(null);
+  const [sortDrop, setSortDrop] = useState(false);
   const [openColPanel, setOpenColPanel] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [addingNew, setAddingNew] = useState(false);
@@ -318,15 +319,16 @@ export default function FreelancerRoster() {
   /* ── persistence effects ─────────────────────────────── */
   useEffect(() => saveLS(LS.roster, roster), [roster]);
   useEffect(() => {
-    if (!openHeaderMenu && !openColPanel) return;
+    if (!openHeaderMenu && !openColPanel && !sortDrop) return;
     const onDocClick = (e) => {
-      if (e.target.closest(".lv-header-menu") || e.target.closest(".lv-col-panel") || e.target.closest(".lv-h-menu-trigger") || e.target.closest(".lv-col-panel-trigger")) return;
+      if (e.target.closest(".lv-header-menu") || e.target.closest(".lv-col-panel") || e.target.closest(".lv-h-menu-trigger") || e.target.closest(".lv-col-panel-trigger") || e.target.closest(".lv-sort-dropdown") || e.target.closest(".lv-sort-trigger")) return;
       setOpenHeaderMenu(null);
       setOpenColPanel(false);
+      setSortDrop(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  }, [openHeaderMenu, openColPanel]);
+  }, [openHeaderMenu, openColPanel, sortDrop]);
   useEffect(() => saveLS(LS.order, columnOrder), [columnOrder]);
   useEffect(() => saveLS(LS.hidden, [...hidden]), [hidden]);
   useEffect(() => saveLS(LS.widths, widths), [widths]);
@@ -336,6 +338,21 @@ export default function FreelancerRoster() {
   useEffect(() => {
     if (searchOpen && searchInputRef.current) searchInputRef.current.focus();
   }, [searchOpen]);
+
+  /* ── global tooltip positioning ──────────────────────── */
+  useEffect(() => {
+    const onMove = (e) => {
+      const tip = e.target.closest && e.target.closest(".tip");
+      if (!tip) return;
+      const txt = tip.querySelector(".tip-text");
+      if (!txt) return;
+      const r = tip.getBoundingClientRect();
+      txt.style.setProperty("--tip-x", (r.left + r.width / 2) + "px");
+      txt.style.setProperty("--tip-y", r.top + "px");
+    };
+    document.addEventListener("mouseover", onMove, true);
+    return () => document.removeEventListener("mouseover", onMove, true);
+  }, []);
 
   /* ── derived: visible columns ─────────────────────────── */
   const visibleColumns = useMemo(() => {
@@ -707,19 +724,22 @@ ${JSON.stringify(ctx, null, 2)}`,
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden" }}>
             {p.star && <Tip text="Superstar — top recommendation."><Star size={14} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /></Tip>}
-            <a href={p.website || undefined} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontWeight: 700, fontSize: 14, color: C.navy, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
-              {p.name}{p.website && <ExternalLink size={11} style={{ color: "#d4d8d7", flexShrink: 0 }} />}
+            <a href={p.website || undefined} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontWeight: 700, fontSize: 14, color: C.navy, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+              {p.name}
+              {p.website && <Tip text="Open website in new tab"><span className="lv-row-icon-hover" style={{ display: "inline-flex", padding: 3, borderRadius: 3, color: C.teal, background: "rgba(0,115,119,0.08)", flexShrink: 0 }}><ExternalLink size={12} /></span></Tip>}
             </a>
           </div>
         );
       case "email":
         return (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
             <span style={{ fontSize: 13, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
             {!p.email.toLowerCase().includes("fiverr") && (
-              <button onClick={(e) => { e.stopPropagation(); copyEmail(p.id, p.email); }} style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "flex", padding: 2, color: copiedId === p.id ? "#059669" : "#c8cecd" }}>
-                {copiedId === p.id ? <Check size={13} /> : <Copy size={13} />}
-              </button>
+              <Tip text={copiedId === p.id ? "Copied!" : "Copy email"}>
+                <button onClick={(e) => { e.stopPropagation(); copyEmail(p.id, p.email); }} className="lv-row-icon-hover" style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "inline-flex", padding: 3, borderRadius: 3, color: copiedId === p.id ? "#fff" : C.teal, background: copiedId === p.id ? "#059669" : "rgba(0,115,119,0.08)" }}>
+                  {copiedId === p.id ? <Check size={12} /> : <Copy size={12} />}
+                </button>
+              </Tip>
             )}
           </div>
         );
@@ -750,19 +770,32 @@ ${JSON.stringify(ctx, null, 2)}`,
     <div style={{ fontFamily: "'Lato', sans-serif", background: C.bg, color: C.navy, minHeight: "100vh" }}>
       <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap" rel="stylesheet" />
       <style>{`
-        .tip { cursor: help; }
-        .tip-text { visibility: hidden; opacity: 0; transition: opacity 0.15s; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #002631; color: #fff; padding: 5px 9px; border-radius: 4px; font-size: 11px; white-space: normal; max-width: 220px; width: max-content; pointer-events: none; z-index: 200; font-weight: 400; line-height: 1.4; letter-spacing: normal; text-transform: none; }
-        .tip-text.tip-left { left: 0; transform: none; }
-        .tip-text.tip-right { left: auto; right: 0; transform: none; }
+        .tip { cursor: help; position: relative; }
+        .tip-text {
+          visibility: hidden; opacity: 0; transition: opacity 0.15s;
+          position: fixed;
+          background: #002631; color: #fff;
+          padding: 6px 10px; border-radius: 4px;
+          font-size: 11px; white-space: normal;
+          max-width: 240px; width: max-content;
+          pointer-events: none; z-index: 9999;
+          font-weight: 400; line-height: 1.4;
+          letter-spacing: normal; text-transform: none;
+          left: var(--tip-x, 0); top: var(--tip-y, 0);
+          transform: translate(-50%, -100%) translateY(-6px);
+        }
         .tip:hover .tip-text { visibility: visible; opacity: 1; }
-        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #002631; color: #fff; padding: 10px 16px; border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 6px; z-index: 300; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #002631; color: #fff; padding: 10px 16px; border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 6px; z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
         body.lv-is-dragging * { user-select: none !important; cursor: grabbing !important; }
         .lv-row:hover { background: ${C.hover} !important; }
         .lv-row:hover .lv-row-actions { opacity: 1; }
         .lv-row-actions { opacity: 0; transition: opacity 0.15s; }
-        .lv-h-resize { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 5; }
-        .lv-h-resize:hover { background: ${C.teal}; }
-        .lv-h-cell { position: relative; }
+        .lv-row-icon-hover { opacity: 0; transition: opacity 0.15s, background 0.15s; }
+        .lv-row:hover .lv-row-icon-hover { opacity: 1; }
+        .lv-row-icon-hover:hover { background: rgba(0,115,119,0.18) !important; }
+        .lv-h-resize { position: absolute; right: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 5; }
+        .lv-h-resize:hover { background: ${C.teal}; opacity: 0.4; }
+        .lv-h-cell { position: relative; transition: background 0.12s; }
         .lv-h-cell:hover { background: #eef2f1; }
       `}</style>
 
@@ -788,16 +821,40 @@ ${JSON.stringify(ctx, null, 2)}`,
         {mode === "browse" && (
           <div>
             {/* Toolbar */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 32px", borderBottom: `1px solid ${C.rule}`, gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 32px", borderBottom: `1px solid ${C.rule}`, gap: 12, position: "sticky", top: 64, zIndex: 35, background: C.white }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button onClick={() => setShowFiltersModal(true)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", fontSize: 13, fontWeight: 600, borderRadius: 5, border: `1px solid ${C.rule}`, background: activeFilterCount ? "#ecfafa" : C.white, color: activeFilterCount ? C.teal : C.body, cursor: "pointer" }}>
                   <Filter size={13} />Filters{activeFilterCount > 0 && <span style={{ background: C.teal, color: "#fff", borderRadius: 99, padding: "0 6px", fontSize: 11, marginLeft: 2 }}>{activeFilterCount}</span>}
                 </button>
-                <span style={{ fontSize: 13, color: "#9ca3af" }}>
-                  Sort: <span style={{ color: C.navy, fontWeight: 600 }}>
-                    {sortKey === "custom" ? "Custom" : `${COLUMNS.find(c => c.key === sortKey)?.label || sortKey} ${sortDir === "asc" ? "↑" : "↓"}`}
-                  </span>
-                </span>
+                <div style={{ position: "relative" }}>
+                  <button className="lv-sort-trigger" onClick={(e) => { e.stopPropagation(); setSortDrop(!sortDrop); }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", fontSize: 13, fontWeight: 600, borderRadius: 5, border: `1px solid ${C.rule}`, background: C.white, color: C.body, cursor: "pointer" }}>
+                    <ChevronsUpDown size={13} style={{ color: "#9ca3af" }} />
+                    Sort: <span style={{ color: C.navy, fontWeight: 700 }}>{sortKey === "custom" ? "Custom" : `${COLUMNS.find(c => c.key === sortKey)?.label || sortKey} ${sortDir === "asc" ? "↑" : "↓"}`}</span>
+                    <ChevronDown size={12} style={{ color: "#9ca3af", opacity: 0.6 }} />
+                  </button>
+                  {sortDrop && (
+                    <div className="lv-sort-dropdown" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 240, padding: "6px 0", maxHeight: 380, overflowY: "auto" }}>
+                      <button onClick={() => { setSortKey("custom"); setSortDrop(false); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px", fontSize: 13, color: sortKey === "custom" ? C.teal : C.body, fontWeight: sortKey === "custom" ? 700 : 400, background: sortKey === "custom" ? C.bg : "transparent", boxSizing: "border-box" }}>
+                        {sortKey === "custom" && <Check size={13} color={C.teal} />}
+                        <span style={{ marginLeft: sortKey === "custom" ? 0 : 21 }}>Custom (drag rows to reorder)</span>
+                      </button>
+                      <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />
+                      <div style={{ padding: "6px 14px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Sort by column</div>
+                      {COLUMNS.filter(c => c.sortable).map(col => (
+                        <div key={col.key}>
+                          <button onClick={() => { setSortKey(col.key); setSortDir("asc"); setSortDrop(false); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", fontSize: 13, color: sortKey === col.key && sortDir === "asc" ? C.teal : C.body, fontWeight: sortKey === col.key && sortDir === "asc" ? 700 : 400, background: sortKey === col.key && sortDir === "asc" ? C.bg : "transparent", boxSizing: "border-box" }}>
+                            {sortKey === col.key && sortDir === "asc" ? <Check size={13} color={C.teal} /> : <ArrowUp size={13} style={{ color: "#9ca3af" }} />}
+                            {col.label} ascending
+                          </button>
+                          <button onClick={() => { setSortKey(col.key); setSortDir("desc"); setSortDrop(false); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", fontSize: 13, color: sortKey === col.key && sortDir === "desc" ? C.teal : C.body, fontWeight: sortKey === col.key && sortDir === "desc" ? 700 : 400, background: sortKey === col.key && sortDir === "desc" ? C.bg : "transparent", boxSizing: "border-box" }}>
+                            {sortKey === col.key && sortDir === "desc" ? <Check size={13} color={C.teal} /> : <ArrowDown size={13} style={{ color: "#9ca3af" }} />}
+                            {col.label} descending
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {searchOpen ? (
@@ -822,7 +879,7 @@ ${JSON.stringify(ctx, null, 2)}`,
               <div style={{ minWidth: "fit-content" }}>
 
                 {/* Header row */}
-                <div style={{ display: "grid", gridTemplateColumns: gridTemplate, background: C.bg, borderBottom: `1px solid ${C.rule}`, position: "sticky", top: 64, zIndex: 40 }}>
+                <div style={{ display: "grid", gridTemplateColumns: gridTemplate, background: C.bg, borderBottom: `1px solid ${C.rule}`, position: "sticky", top: 117, zIndex: 30, boxShadow: "0 1px 0 #e8efee" }}>
                   {visibleColumns.map((col, i) => {
                     const isDragged = colDrag?.key === col.key;
                     const reorderableIdx = visibleColumns.filter(c => !c.pinned).findIndex(c => c.key === col.key);
@@ -845,9 +902,12 @@ ${JSON.stringify(ctx, null, 2)}`,
                           borderRight: `1px solid ${C.rule}`,
                           cursor: col.pinned ? "default" : "grab",
                           display: "flex", alignItems: "center", justifyContent: "space-between",
-                          transform: `translateX(${translateX}px)`, transition: colDrag ? "transform 0.15s" : "none",
-                          opacity: isDragged ? 0.4 : 1,
-                          background: openHeaderMenu === col.key ? "#eef2f1" : "transparent",
+                          transform: `translateX(${translateX}px)`,
+                          transition: colDrag ? "transform 0.18s cubic-bezier(0.2, 0, 0.13, 1.5)" : "none",
+                          background: isDragged ? "#ecfafa" : (openHeaderMenu === col.key ? "#eef2f1" : "transparent"),
+                          boxShadow: isDragged ? "0 6px 18px rgba(0,38,49,0.18), 0 0 0 2px #007377" : "none",
+                          zIndex: isDragged ? 20 : 1,
+                          position: "relative",
                         }}
                       >
                         <button
@@ -937,8 +997,26 @@ ${JSON.stringify(ctx, null, 2)}`,
                 </div>
 
                 {/* Rows */}
-                {rows.map((p) => {
+                {rows.map((p, rowIdx) => {
                   const isDragged = rowDrag?.id === p.id;
+                  const showDropIndicator = rowDrag && !isDragged;
+                  // Calculate drop indicator position
+                  let dropIndicatorAbove = false;
+                  let dropIndicatorBelow = false;
+                  if (showDropIndicator) {
+                    const { fromIdx, targetIdx } = rowDrag;
+                    // Find this row's index in the visible rows
+                    const myIdx = rows.findIndex(r => r.id === p.id);
+                    // Adjust: when dragging from fromIdx to targetIdx, the indicator goes between targetIdx and targetIdx+1
+                    let visualTarget = targetIdx;
+                    if (fromIdx > targetIdx) {
+                      // dragging up
+                      if (myIdx === visualTarget) dropIndicatorAbove = true;
+                    } else {
+                      // dragging down
+                      if (myIdx === visualTarget + 1) dropIndicatorAbove = true;
+                    }
+                  }
                   return (
                     <div
                       key={p.id}
@@ -947,18 +1025,27 @@ ${JSON.stringify(ctx, null, 2)}`,
                       className="lv-row"
                       style={{
                         display: "grid", gridTemplateColumns: gridTemplate,
-                        borderBottom: `1px solid ${C.rule}`, background: C.white,
-                        opacity: isDragged ? 0.4 : 1,
+                        borderBottom: `1px solid ${C.rule}`,
+                        background: isDragged ? "#ecfafa" : C.white,
+                        opacity: isDragged ? 0.85 : 1,
                         position: "relative",
+                        boxShadow: isDragged ? "0 8px 24px rgba(0,38,49,0.18), 0 0 0 2px #007377" : "none",
+                        zIndex: isDragged ? 10 : 1,
+                        borderTop: dropIndicatorAbove ? `3px solid ${C.teal}` : "1px solid transparent",
+                        transition: isDragged ? "none" : "background 0.15s",
                       }}
                     >
                       {visibleColumns.map((col) => (
                         <div key={col.key} style={{ padding: "12px", borderRight: `1px solid ${C.rule}`, display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden", position: "relative" }}>
                           {renderCell(col, p)}
                           {col.key === "name" && (
-                            <div className="lv-row-actions" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", display: "flex", gap: 2, background: C.white, padding: "2px 4px", borderRadius: 4, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-                              <button onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }} title="Edit" style={{ all: "unset", cursor: "pointer", display: "flex", padding: 4, color: "#9ca3af" }}><Pencil size={12} /></button>
-                              <button onClick={(e) => { e.stopPropagation(); deleteFreelancer(p.id); }} title="Delete" style={{ all: "unset", cursor: "pointer", display: "flex", padding: 4, color: "#9ca3af" }}><Trash2 size={12} /></button>
+                            <div className="lv-row-actions" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", display: "flex", gap: 3, background: C.white, padding: "3px 5px", borderRadius: 5, boxShadow: "0 2px 6px rgba(0,38,49,0.12)", border: `1px solid ${C.rule}` }}>
+                              <Tip text="Edit">
+                                <button onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }} style={{ all: "unset", cursor: "pointer", display: "flex", padding: 5, borderRadius: 3, color: C.body, transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = C.bg} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><Pencil size={13} /></button>
+                              </Tip>
+                              <Tip text="Delete">
+                                <button onClick={(e) => { e.stopPropagation(); deleteFreelancer(p.id); }} style={{ all: "unset", cursor: "pointer", display: "flex", padding: 5, borderRadius: 3, color: "#dc2626", transition: "background 0.1s" }} onMouseEnter={e => e.currentTarget.style.background = "#fef2f2"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}><Trash2 size={13} /></button>
+                              </Tip>
                             </div>
                           )}
                         </div>
