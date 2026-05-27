@@ -230,6 +230,18 @@ const COLUMNS = [
 ];
 
 const DEFAULT_VISIBLE = ["name", "email", "bestAt", "tier", "trust", "price", "speed", "responsiveness", "approvedVendor"];
+
+// Skill groupings for the filters modal — organize the long flat skills list into meaningful groups
+const SKILL_GROUPS = [
+  { label: "Video & Film", skills: ["video production", "video editing", "brand films", "commercials", "documentary", "testimonial videos", "corporate video", "event videography", "scriptwriting", "cinematography", "post-production", "color grading", "live streaming"] },
+  { label: "Photo", skills: ["photography", "commercial photography", "editorial photography", "portrait photography", "lifestyle photography", "travel photography", "corporate photography", "product photography", "event photography", "headshots"] },
+  { label: "Animation & Motion", skills: ["motion graphics", "2D animation", "3D animation", "2D motion graphics", "logo animation", "explainer animation", "Lottie animation", "kinetic typography", "mixed media animation", "explainer videos"] },
+  { label: "Design", skills: ["graphic design", "brand identity", "brand refresh", "brand guidelines", "logo design", "presentation design", "ebook design", "one-pager design", "case study design", "document design", "static ad design", "social ad design", "social ads", "social media graphics", "sales enablement design", "event design", "tradeshow graphics", "advertising design", "packaging", "print", "web design", "UX/UI design"] },
+  { label: "Drone & Aerial", skills: ["drone", "aerial video", "aerial photography", "FAA certified", "FPV"] },
+  { label: "Voiceover & Audio", skills: ["voiceover", "narration", "commercial voiceover", "British accent", "explainer video VO", "e-learning", "audio editing", "sound design"] },
+  { label: "Social & Short-Form", skills: ["webinar clipping", "short-form video", "social video", "branded bumpers", "YouTube editing", "thumbnail design", "podcast editing"] },
+  { label: "Software & Tools", skills: ["Figma", "After Effects", "Illustrator", "InDesign", "Premiere Pro", "DaVinci Resolve", "Cinema 4D", "Lightroom", "Capture One", "PowerPoint"] },
+];
 const LS = {
   roster:   "freelancer-roster.v2.roster",
   widths:   "freelancer-roster.v2.widths",
@@ -305,6 +317,16 @@ export default function FreelancerRoster() {
 
   /* ── persistence effects ─────────────────────────────── */
   useEffect(() => saveLS(LS.roster, roster), [roster]);
+  useEffect(() => {
+    if (!openHeaderMenu && !openColPanel) return;
+    const onDocClick = (e) => {
+      if (e.target.closest(".lv-header-menu") || e.target.closest(".lv-col-panel") || e.target.closest(".lv-h-menu-trigger") || e.target.closest(".lv-col-panel-trigger")) return;
+      setOpenHeaderMenu(null);
+      setOpenColPanel(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [openHeaderMenu, openColPanel]);
   useEffect(() => saveLS(LS.order, columnOrder), [columnOrder]);
   useEffect(() => saveLS(LS.hidden, [...hidden]), [hidden]);
   useEffect(() => saveLS(LS.widths, widths), [widths]);
@@ -353,6 +375,8 @@ export default function FreelancerRoster() {
       r = r.filter(p => {
         if (key === "approvedVendor") return values.includes(p.approvedVendor ? "yes" : "no");
         if (key === "category") return values.some(v => (p.categories || []).includes(v));
+        if (key === "skills") return values.some(v => (p.skills || []).some(s => s.toLowerCase() === v.toLowerCase()));
+        if (key === "star") return values.includes(p.star ? "yes" : "no");
         return values.includes(p[key]);
       });
     }
@@ -407,6 +431,9 @@ export default function FreelancerRoster() {
     if (!col || col.pinned) return;
     if (e.target.closest(".lv-h-resize")) return;
     if (e.target.closest(".lv-h-menu-trigger")) return;
+    if (e.target.closest(".lv-header-menu")) return;
+    if (e.target.closest(".lv-col-panel")) return;
+    if (e.target.closest(".lv-col-panel-trigger")) return;
     const reorderableKeys = columnOrder.filter(k => {
       if (hidden.has(k)) return false;
       const c = COLUMNS.find(c => c.key === k);
@@ -835,7 +862,7 @@ ${JSON.stringify(ctx, null, 2)}`,
 
                         {/* Header menu */}
                         {openHeaderMenu === col.key && (
-                          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 200, padding: "4px 0", textTransform: "none", letterSpacing: "normal" }}>
+                          <div className="lv-header-menu" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 200, padding: "4px 0", textTransform: "none", letterSpacing: "normal" }}>
                             {col.sortable && (
                               <>
                                 <button onClick={() => applySort(col.key, "asc")} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: C.body, fontWeight: 400, boxSizing: "border-box" }}><ArrowUp size={13} />Sort ascending</button>
@@ -889,11 +916,11 @@ ${JSON.stringify(ctx, null, 2)}`,
 
                   {/* Trailing + slot */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRight: `1px solid ${C.rule}`, position: "relative" }}>
-                    <button onClick={(e) => { e.stopPropagation(); setOpenColPanel(!openColPanel); }} style={{ all: "unset", cursor: "pointer", padding: 6, borderRadius: 4, color: "#9ca3af", display: "flex" }}>
+                    <button className="lv-col-panel-trigger" onClick={(e) => { e.stopPropagation(); setOpenColPanel(!openColPanel); }} style={{ all: "unset", cursor: "pointer", padding: 6, borderRadius: 4, color: "#9ca3af", display: "flex" }}>
                       <Plus size={14} />
                     </button>
                     {openColPanel && (
-                      <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 220, padding: "6px 0", textTransform: "none", letterSpacing: "normal" }}>
+                      <div className="lv-col-panel" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 220, padding: "6px 0", textTransform: "none", letterSpacing: "normal" }}>
                         <div style={{ padding: "6px 12px", fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Columns</div>
                         {COLUMNS.filter(c => c.hideable).map(c => {
                           const visible = !hidden.has(c.key);
@@ -909,14 +936,8 @@ ${JSON.stringify(ctx, null, 2)}`,
                   </div>
                 </div>
 
-                {/* Inline add form */}
-                {addingNew && <InlineForm initial={null} onSave={(d) => saveFreelancer(d, true)} onCancel={() => setAddingNew(false)} visibleColumns={visibleColumns} gridTemplate={gridTemplate} />}
-
                 {/* Rows */}
                 {rows.map((p) => {
-                  if (editingId === p.id) {
-                    return <InlineForm key={p.id} initial={p} onSave={(d) => saveFreelancer(d, false)} onCancel={() => setEditingId(null)} visibleColumns={visibleColumns} gridTemplate={gridTemplate} />;
-                  }
                   const isDragged = rowDrag?.id === p.id;
                   return (
                     <div
@@ -975,89 +996,183 @@ ${JSON.stringify(ctx, null, 2)}`,
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
 
       {/* Toast */}
-      {showToast && <div className="toast"><Check size={12} />Email copied</div>}
+      {/* Edit / Add drawer */}
+      {(editingId || addingNew) && (
+        <EditDrawer
+          initial={addingNew ? null : roster.find(r => r.id === editingId)}
+          onSave={(d) => saveFreelancer(d, addingNew)}
+          onCancel={() => { setEditingId(null); setAddingNew(false); }}
+        />
+      )}
 
-      {/* Click outside to close menus */}
-      {(openHeaderMenu || openColPanel) && <div onClick={() => { setOpenHeaderMenu(null); setOpenColPanel(false); }} style={{ position: "fixed", inset: 0, zIndex: 80 }} />}
+      {showToast && <div className="toast"><Check size={12} />Email copied</div>}
     </div>
   );
 }
 
-/* ── Inline Add/Edit Form ──────────────────────────────── */
-function InlineForm({ initial, onSave, onCancel, visibleColumns, gridTemplate }) {
+/* ── Edit/Add Right-Side Drawer ────────────────────────── */
+function EditDrawer({ initial, onSave, onCancel }) {
   const blank = { name: "", email: "", website: "", location: "", categories: [], skills: [], bestAt: [], tier: "MID", trust: "NEW", price: 2, speed: "standard", responsiveness: "neutral", approvedVendor: false, star: false, notes: "" };
   const [form, setForm] = useState(initial || blank);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const parseList = (s) => s.split(",").map(x => x.trim()).filter(Boolean);
+  const isNew = !initial;
+
+  // ESC to close
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
 
   return (
-    <div style={{ background: "#fffceb", borderBottom: `2px solid #fcd34d`, padding: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-        <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="Name *" style={inputS} />
-        <input value={form.email} onChange={e => set("email", e.target.value)} placeholder="Email or 'Contact via Fiverr'" style={inputS} />
-        <input value={form.website} onChange={e => set("website", e.target.value)} placeholder="Website URL" style={inputS} />
-        <input value={form.location} onChange={e => set("location", e.target.value)} placeholder="Location" style={inputS} />
-        <input value={(form.bestAt || []).join(", ")} onChange={e => set("bestAt", parseList(e.target.value))} placeholder="Best at (comma-separated)" style={inputS} />
-        <input value={(form.skills || []).join(", ")} onChange={e => set("skills", parseList(e.target.value))} placeholder="Skills (comma-separated)" style={inputS} />
-        <input value={(form.categories || []).join(", ")} onChange={e => set("categories", parseList(e.target.value).map(s => s.toLowerCase()))} placeholder="Categories (design, video, photo, animation, other)" style={inputS} />
-        <textarea value={form.notes || ""} onChange={e => set("notes", e.target.value)} placeholder="Notes" style={{ ...inputS, minHeight: 38, fontFamily: "inherit", resize: "vertical" }} />
-      </div>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-        <label style={lblS}>Tier
-          <select value={form.tier} onChange={e => set("tier", e.target.value)} style={selS}>
-            <option value="BUDGET">Budget</option><option value="MID">Mid</option><option value="PRO">Pro</option><option value="ELITE">Elite</option>
-          </select>
-        </label>
-        <label style={lblS}>Trust
-          <select value={form.trust} onChange={e => set("trust", e.target.value)} style={selS}>
-            <option value="NEW">New</option><option value="PROVING">Proving</option><option value="TRUSTED">Trusted</option>
-          </select>
-        </label>
-        <label style={lblS}>Price
-          <select value={form.price} onChange={e => set("price", Number(e.target.value))} style={selS}>
-            <option value={1}>$</option><option value={2}>$$</option><option value={3}>$$$</option><option value={4}>$$$$</option>
-          </select>
-        </label>
-        <label style={lblS}>Speed
-          <select value={form.speed} onChange={e => set("speed", e.target.value)} style={selS}>
-            <option value="fast">Fast</option><option value="standard">Standard</option><option value="slow">Slow</option>
-          </select>
-        </label>
-        <label style={lblS}>Comms
-          <select value={form.responsiveness} onChange={e => set("responsiveness", e.target.value)} style={selS}>
-            <option value="very">Very responsive</option><option value="neutral">Neutral</option><option value="slow">Slow</option>
-          </select>
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-          <input type="checkbox" checked={form.approvedVendor} onChange={e => set("approvedVendor", e.target.checked)} />In system
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-          <input type="checkbox" checked={form.star || false} onChange={e => set("star", e.target.checked)} />Superstar
-        </label>
-      </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => { if (!form.name.trim()) { alert("Name is required"); return; } onSave(form); }} style={{ padding: "8px 16px", fontSize: 13, fontWeight: 700, background: "#007377", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" }}>Save</button>
-        <button onClick={onCancel} style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: "#fff", color: "#53565A", border: "1px solid #e8efee", borderRadius: 5, cursor: "pointer" }}>Cancel</button>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, fontFamily: "'Lato', sans-serif" }}>
+      {/* Backdrop */}
+      <div onClick={onCancel} style={{ position: "absolute", inset: 0, background: "rgba(0,38,49,0.35)" }} />
+      {/* Drawer */}
+      <div style={{
+        position: "absolute", top: 0, right: 0, bottom: 0, width: "min(560px, 100vw)",
+        background: "#fff", boxShadow: "-12px 0 40px rgba(0,38,49,0.15)",
+        display: "flex", flexDirection: "column",
+        animation: "drawerSlide 0.2s ease-out",
+      }}>
+        <style>{`@keyframes drawerSlide { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
+
+        {/* Header */}
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #e8efee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9ca3af", marginBottom: 2 }}>{isNew ? "Add new" : "Edit"}</div>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#002631" }}>{isNew ? "New freelancer or agency" : (form.name || "Untitled")}</h2>
+          </div>
+          <button onClick={onCancel} style={{ all: "unset", cursor: "pointer", color: "#9ca3af", padding: 6 }}><X size={20} /></button>
+        </div>
+
+        {/* Body — scrollable */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+          <Section title="Basics">
+            <Field label="Name *">
+              <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Sari Miller" style={inputS} />
+            </Field>
+            <Field label="Email or contact">
+              <input value={form.email} onChange={e => set("email", e.target.value)} placeholder="email@example.com or 'Contact via Fiverr'" style={inputS} />
+            </Field>
+            <Field label="Website">
+              <input value={form.website} onChange={e => set("website", e.target.value)} placeholder="https://..." style={inputS} />
+            </Field>
+            <Field label="Location">
+              <input value={form.location} onChange={e => set("location", e.target.value)} placeholder="City, State" style={inputS} />
+            </Field>
+          </Section>
+
+          <Section title="Specialty">
+            <Field label="Categories" hint="Pick all that apply">
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {["design", "video", "photo", "animation", "other"].map(cat => {
+                  const active = (form.categories || []).includes(cat);
+                  return (
+                    <button key={cat} onClick={() => set("categories", active ? form.categories.filter(c => c !== cat) : [...(form.categories || []), cat])} style={{ all: "unset", cursor: "pointer", padding: "5px 11px", fontSize: 12, fontWeight: 600, borderRadius: 99, border: `1px solid ${active ? "#007377" : "#e8efee"}`, background: active ? "#ecfafa" : "#fff", color: active ? "#007377" : "#53565A", textTransform: "capitalize" }}>{cat}</button>
+                  );
+                })}
+              </div>
+            </Field>
+            <Field label="Best at" hint="Comma-separated. These are the headline specialties shown on cards.">
+              <input value={(form.bestAt || []).join(", ")} onChange={e => set("bestAt", parseList(e.target.value))} placeholder="e.g. Brand Identity, Presentation Design" style={inputS} />
+            </Field>
+            <Field label="Skills" hint="Comma-separated. Full skill list for filtering and search.">
+              <textarea value={(form.skills || []).join(", ")} onChange={e => set("skills", parseList(e.target.value))} placeholder="e.g. Figma, After Effects, brand design, motion graphics" style={{ ...inputS, minHeight: 60, fontFamily: "inherit", resize: "vertical" }} />
+            </Field>
+          </Section>
+
+          <Section title="Ratings">
+            <FieldRow>
+              <Field label="Tier" half>
+                <select value={form.tier} onChange={e => set("tier", e.target.value)} style={selS}>
+                  <option value="BUDGET">Budget</option><option value="MID">Mid</option><option value="PRO">Pro</option><option value="ELITE">Elite</option>
+                </select>
+              </Field>
+              <Field label="Trust" half>
+                <select value={form.trust} onChange={e => set("trust", e.target.value)} style={selS}>
+                  <option value="NEW">New</option><option value="PROVING">Proving</option><option value="TRUSTED">Trusted</option>
+                </select>
+              </Field>
+            </FieldRow>
+            <FieldRow>
+              <Field label="Price" half>
+                <select value={form.price} onChange={e => set("price", Number(e.target.value))} style={selS}>
+                  <option value={1}>$ — Budget</option><option value={2}>$$ — Moderate</option><option value={3}>$$$ — Higher-end</option><option value={4}>$$$$ — Premium</option>
+                </select>
+              </Field>
+              <Field label="Speed" half>
+                <select value={form.speed} onChange={e => set("speed", e.target.value)} style={selS}>
+                  <option value="fast">Fast</option><option value="standard">Standard</option><option value="slow">Slow</option>
+                </select>
+              </Field>
+            </FieldRow>
+            <Field label="Communication style">
+              <select value={form.responsiveness} onChange={e => set("responsiveness", e.target.value)} style={selS}>
+                <option value="very">Very responsive</option><option value="neutral">Neutral</option><option value="slow">Slow</option>
+              </select>
+            </Field>
+          </Section>
+
+          <Section title="Status">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#53565A", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.approvedVendor} onChange={e => set("approvedVendor", e.target.checked)} />
+                <strong>In our vendor system</strong> — risk/compliance cleared, bank info on file
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#53565A", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.star || false} onChange={e => set("star", e.target.checked)} />
+                <strong>Superstar</strong> ⭐ — top-tier recommendation, floats to top
+              </label>
+            </div>
+          </Section>
+
+          <Section title="Notes">
+            <Field label="Internal notes" hint="Context, caveats, who referred them, etc.">
+              <textarea value={form.notes || ""} onChange={e => set("notes", e.target.value)} placeholder="Anything else worth knowing…" style={{ ...inputS, minHeight: 80, fontFamily: "inherit", resize: "vertical" }} />
+            </Field>
+          </Section>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "16px 24px", borderTop: "1px solid #e8efee", display: "flex", justifyContent: "flex-end", gap: 8, background: "#fafbfb" }}>
+          <button onClick={onCancel} style={{ padding: "9px 18px", fontSize: 13, fontWeight: 600, background: "#fff", color: "#53565A", border: "1px solid #e8efee", borderRadius: 5, cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => { if (!form.name.trim()) { alert("Name is required"); return; } onSave(form); }} style={{ padding: "9px 20px", fontSize: 13, fontWeight: 700, background: "#007377", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" }}>{isNew ? "Add freelancer" : "Save changes"}</button>
+        </div>
       </div>
     </div>
   );
 }
-const inputS = { padding: "8px 10px", fontSize: 13, border: "1px solid #e8efee", borderRadius: 5, fontFamily: "inherit", outline: "none", background: "#fff" };
-const lblS = { display: "flex", flexDirection: "column", gap: 3, fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" };
-const selS = { padding: "6px 8px", fontSize: 13, border: "1px solid #e8efee", borderRadius: 5, fontFamily: "inherit", background: "#fff", color: "#002631", textTransform: "none", letterSpacing: "normal", fontWeight: 400 };
+const Section = ({ title, children }) => <div style={{ marginBottom: 24 }}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#007377", marginBottom: 12, paddingBottom: 6, borderBottom: "1px solid #e8efee" }}>{title}</div>{children}</div>;
+const Field = ({ label, hint, half, children }) => <div style={{ marginBottom: 14, flex: half ? 1 : "auto", minWidth: 0 }}><label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#53565A", marginBottom: 5 }}>{label}</label>{hint && <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 5 }}>{hint}</div>}{children}</div>;
+const FieldRow = ({ children }) => <div style={{ display: "flex", gap: 12 }}>{children}</div>;
+const inputS = { padding: "8px 11px", fontSize: 13, border: "1px solid #e8efee", borderRadius: 5, fontFamily: "inherit", outline: "none", background: "#fff", color: "#002631", width: "100%", boxSizing: "border-box" };
+const selS = { padding: "8px 11px", fontSize: 13, border: "1px solid #e8efee", borderRadius: 5, fontFamily: "inherit", background: "#fff", color: "#002631", textTransform: "none", letterSpacing: "normal", fontWeight: 400, width: "100%", boxSizing: "border-box" };
 
 /* ── Filters Modal (Rippling-style 3-column) ──────────── */
 function FiltersModal({ filters, setFilters, onClose }) {
-  const filterableCols = COLUMNS.filter(c => c.hasQuickFilter || c.key === "approvedVendor");
-  const [activeField, setActiveField] = useState(filterableCols[0]?.key);
+  // Build complete list of filterable fields - columns + special ones
+  const FILTER_FIELDS = [
+    { key: "category", label: "Category", options: { design: "Design", video: "Video", photo: "Photo", animation: "Animation", other: "Other" } },
+    { key: "tier", label: "Tier", options: Object.fromEntries(Object.entries(TIER).map(([k, v]) => [k, v.label])) },
+    { key: "trust", label: "Trust", options: Object.fromEntries(Object.entries(TRUST).map(([k, v]) => [k, v.label])) },
+    { key: "speed", label: "Speed", options: Object.fromEntries(Object.entries(SPEED).map(([k, v]) => [k, v.label])) },
+    { key: "responsiveness", label: "Comms", options: Object.fromEntries(Object.entries(RESPONSIVENESS).map(([k, v]) => [k, v.label])) },
+    { key: "approvedVendor", label: "In System", options: { yes: "Approved", no: "Needs setup" } },
+    { key: "star", label: "Superstar only", options: { yes: "Superstars only" } },
+    { key: "skills", label: "Skills & Tools", isSkills: true },
+  ];
+  const [activeField, setActiveField] = useState(FILTER_FIELDS[0].key);
+
   const allSelected = Object.entries(filters).flatMap(([field, vals]) =>
     (vals || []).map(v => ({ field, value: v }))
   );
-  const fieldLabel = (key) => COLUMNS.find(c => c.key === key)?.label || key;
+  const fieldLabel = (key) => FILTER_FIELDS.find(f => f.key === key)?.label || key;
   const valueLabel = (field, value) => {
-    if (field === "approvedVendor") return value === "yes" ? "Approved" : "Needs setup";
-    const col = COLUMNS.find(c => c.key === field);
-    return col?.options?.[value]?.label || value;
+    const f = FILTER_FIELDS.find(f => f.key === field);
+    if (f?.options?.[value]) return f.options[value];
+    return value;
   };
   const toggleVal = (field, value) => {
     setFilters(prev => {
@@ -1068,48 +1183,70 @@ function FiltersModal({ filters, setFilters, onClose }) {
       return newFilters;
     });
   };
-  const activeCol = COLUMNS.find(c => c.key === activeField);
-  const options = activeField === "approvedVendor" ? { yes: { label: "Approved" }, no: { label: "Needs setup" } } : (activeCol?.options || {});
+  const activeFieldDef = FILTER_FIELDS.find(f => f.key === activeField);
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,38,49,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20, fontFamily: "'Lato', sans-serif" }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 900, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 12px 48px rgba(0,38,49,0.2)" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 980, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 12px 48px rgba(0,38,49,0.2)" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #e8efee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#002631" }}>Filters</h2>
           <button onClick={onClose} style={{ all: "unset", cursor: "pointer", color: "#9ca3af", display: "flex" }}><X size={18} /></button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 240px", flex: 1, minHeight: 320, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "200px 1fr 260px", flex: 1, minHeight: 400, overflow: "hidden" }}>
           {/* Left rail */}
           <div style={{ borderRight: "1px solid #e8efee", overflowY: "auto", background: "#f6f9f8" }}>
-            {filterableCols.map(col => (
-              <button key={col.key} onClick={() => setActiveField(col.key)} style={{ all: "unset", cursor: "pointer", display: "block", width: "100%", padding: "10px 16px", fontSize: 13, color: activeField === col.key ? "#007377" : "#53565A", fontWeight: activeField === col.key ? 700 : 400, background: activeField === col.key ? "#fff" : "transparent", borderLeft: activeField === col.key ? "3px solid #007377" : "3px solid transparent", boxSizing: "border-box" }}>
-                {col.label}
-                {filters[col.key]?.length > 0 && <span style={{ marginLeft: 6, color: "#007377", fontWeight: 700 }}>({filters[col.key].length})</span>}
-              </button>
-            ))}
-          </div>
-          {/* Middle pane */}
-          <div style={{ padding: 20, overflowY: "auto" }}>
-            <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>{fieldLabel(activeField)} — select values</div>
-            {Object.entries(options).map(([k, v]) => {
-              const active = (filters[activeField] || []).includes(k);
+            {FILTER_FIELDS.map(f => {
+              const count = filters[f.key]?.length || 0;
               return (
-                <button key={k} onClick={() => toggleVal(activeField, k)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 0", fontSize: 13, color: active ? "#007377" : "#53565A", fontWeight: active ? 700 : 400, boxSizing: "border-box" }}>
-                  <span style={{ width: 16, height: 16, border: `1.5px solid ${active ? "#007377" : "#d4d8d7"}`, borderRadius: 3, background: active ? "#007377" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{active && <Check size={11} color="#fff" />}</span>
-                  {v.label}
+                <button key={f.key} onClick={() => setActiveField(f.key)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "11px 16px", fontSize: 13, color: activeField === f.key ? "#007377" : "#53565A", fontWeight: activeField === f.key ? 700 : 400, background: activeField === f.key ? "#fff" : "transparent", borderLeft: activeField === f.key ? "3px solid #007377" : "3px solid transparent", boxSizing: "border-box" }}>
+                  <span>{f.label}</span>
+                  {count > 0 && <span style={{ background: "#007377", color: "#fff", fontSize: 10, padding: "1px 6px", borderRadius: 99, fontWeight: 700 }}>{count}</span>}
                 </button>
               );
             })}
           </div>
+          {/* Middle pane */}
+          <div style={{ padding: 20, overflowY: "auto" }}>
+            <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>{fieldLabel(activeField)}</div>
+            {activeFieldDef?.isSkills ? (
+              <div>
+                {SKILL_GROUPS.map(group => (
+                  <div key={group.label} style={{ marginBottom: 18 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#007377", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>{group.label}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {group.skills.map(skill => {
+                        const active = (filters.skills || []).includes(skill);
+                        return (
+                          <button key={skill} onClick={() => toggleVal("skills", skill)} style={{ all: "unset", cursor: "pointer", padding: "5px 11px", fontSize: 12, fontWeight: active ? 700 : 500, borderRadius: 99, border: `1px solid ${active ? "#007377" : "#e8efee"}`, background: active ? "#ecfafa" : "#fff", color: active ? "#007377" : "#53565A" }}>{skill}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div>
+                {Object.entries(activeFieldDef?.options || {}).map(([k, lbl]) => {
+                  const active = (filters[activeField] || []).includes(k);
+                  return (
+                    <button key={k} onClick={() => toggleVal(activeField, k)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 0", fontSize: 13, color: active ? "#007377" : "#53565A", fontWeight: active ? 700 : 400, boxSizing: "border-box" }}>
+                      <span style={{ width: 16, height: 16, border: `1.5px solid ${active ? "#007377" : "#d4d8d7"}`, borderRadius: 3, background: active ? "#007377" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{active && <Check size={11} color="#fff" />}</span>
+                      {lbl}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           {/* Right pane: all selected pills */}
           <div style={{ borderLeft: "1px solid #e8efee", padding: 16, overflowY: "auto", background: "#fafbfb" }}>
             <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Active filters ({allSelected.length})</div>
-            {allSelected.length === 0 && <div style={{ fontSize: 12, color: "#b0b5b4", fontStyle: "italic" }}>None</div>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {allSelected.length === 0 && <div style={{ fontSize: 12, color: "#b0b5b4", fontStyle: "italic" }}>None selected</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               {allSelected.map(({ field, value }) => (
                 <div key={`${field}-${value}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "5px 9px", background: "#ecfafa", borderRadius: 4 }}>
-                  <span style={{ fontSize: 12, color: "#007377" }}>{fieldLabel(field)}: <strong>{valueLabel(field, value)}</strong></span>
-                  <button onClick={() => toggleVal(field, value)} style={{ all: "unset", cursor: "pointer", color: "#007377", display: "flex" }}><X size={12} /></button>
+                  <span style={{ fontSize: 11, color: "#007377", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ opacity: 0.7 }}>{fieldLabel(field)}:</span> <strong>{valueLabel(field, value)}</strong></span>
+                  <button onClick={() => toggleVal(field, value)} style={{ all: "unset", cursor: "pointer", color: "#007377", display: "flex", flexShrink: 0 }}><X size={12} /></button>
                 </div>
               ))}
             </div>
@@ -1117,7 +1254,7 @@ function FiltersModal({ filters, setFilters, onClose }) {
         </div>
         <div style={{ padding: "12px 20px", borderTop: "1px solid #e8efee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <button onClick={() => setFilters({})} style={{ all: "unset", cursor: "pointer", fontSize: 13, color: "#9ca3af", fontWeight: 600 }}>Clear all</button>
-          <button onClick={onClose} style={{ padding: "8px 20px", fontSize: 13, fontWeight: 700, background: "#007377", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" }}>Done</button>
+          <button onClick={onClose} style={{ padding: "9px 22px", fontSize: 13, fontWeight: 700, background: "#007377", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" }}>Done</button>
         </div>
       </div>
     </div>
