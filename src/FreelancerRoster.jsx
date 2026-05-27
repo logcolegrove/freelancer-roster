@@ -306,6 +306,7 @@ export default function FreelancerRoster() {
   const [rowDrag, setRowDrag] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [showToast, setShowToast] = useState(false);
+  const [tooltip, setTooltip] = useState(null); // {text, x, y}
   const headerCellRefs = useRef(new Map());
   const rowRefs = useRef(new Map());
   const rowDragJustEnded = useRef(false);
@@ -345,42 +346,50 @@ export default function FreelancerRoster() {
     if (searchOpen && searchInputRef.current) searchInputRef.current.focus();
   }, [searchOpen]);
 
-  /* ── global tooltip positioning ──────────────────────── */
+  /* ── global tooltip system ────────────────────────────── */
   useEffect(() => {
-    const onMove = (e) => {
+    let measureEl = null;
+    const onEnter = (e) => {
       const tip = e.target.closest && e.target.closest(".tip");
       if (!tip) return;
-      const txt = tip.querySelector(".tip-text");
-      if (!txt) return;
+      const text = tip.getAttribute("data-tip");
+      if (!text) return;
       const r = tip.getBoundingClientRect();
-      // Measure tooltip without showing it
-      const prevVis = txt.style.visibility;
-      const prevDisp = txt.style.display;
-      txt.style.visibility = "hidden";
-      txt.style.display = "block";
-      const tipRect = txt.getBoundingClientRect();
-      const tooltipW = tipRect.width;
-      const tooltipH = tipRect.height;
-      txt.style.visibility = prevVis;
-      txt.style.display = prevDisp;
-      // Center horizontally over trigger, clamp to viewport (8px margins)
+      // Create a hidden measuring element to compute tooltip size
+      if (!measureEl) {
+        measureEl = document.createElement("div");
+        measureEl.style.cssText = "position:fixed;visibility:hidden;pointer-events:none;padding:8px 12px;font-size:12px;font-family:'Lato',sans-serif;max-width:260px;width:max-content;line-height:1.45;";
+        document.body.appendChild(measureEl);
+      }
+      measureEl.textContent = text;
+      const tooltipW = measureEl.offsetWidth;
+      const tooltipH = measureEl.offsetHeight;
       let cx = r.left + r.width / 2 - tooltipW / 2;
       cx = Math.max(8, Math.min(cx, window.innerWidth - tooltipW - 8));
-      // Default: position above the trigger
       let cy = r.top - tooltipH - 8;
-      // If too high (would be clipped by top), flip below
       if (cy < 8) {
         cy = r.bottom + 8;
-        // If also too low (rare), clamp to viewport
         if (cy + tooltipH > window.innerHeight - 8) {
           cy = Math.max(8, window.innerHeight - tooltipH - 8);
         }
       }
-      txt.style.setProperty("--tip-x", cx + "px");
-      txt.style.setProperty("--tip-y", cy + "px");
+      setTooltip({ text, x: cx, y: cy });
     };
-    document.addEventListener("mouseover", onMove, true);
-    return () => document.removeEventListener("mouseover", onMove, true);
+    const onLeave = (e) => {
+      const tip = e.target.closest && e.target.closest(".tip");
+      if (!tip) return;
+      // Check if we're leaving to a non-tip element
+      const toEl = e.relatedTarget;
+      if (toEl && toEl.closest && toEl.closest(".tip") === tip) return;
+      setTooltip(null);
+    };
+    document.addEventListener("mouseover", onEnter, true);
+    document.addEventListener("mouseout", onLeave, true);
+    return () => {
+      document.removeEventListener("mouseover", onEnter, true);
+      document.removeEventListener("mouseout", onLeave, true);
+      if (measureEl && measureEl.parentNode) measureEl.parentNode.removeChild(measureEl);
+    };
   }, []);
 
   /* ── derived: visible columns ─────────────────────────── */
@@ -772,7 +781,7 @@ ${JSON.stringify(ctx, null, 2)}`,
   };
 
   /* ── tiny components ─────────────────────────────────── */
-  const Tip = ({ text, children }) => <span className="tip" style={{ position: "relative", display: "inline-flex" }}>{children}<span className="tip-text">{text}</span></span>;
+  const Tip = ({ text, children }) => <span className="tip" data-tip={text} style={{ position: "relative", display: "inline-flex" }}>{children}</span>;
   const TierBadge = ({ tier }) => <Tip text={TIER[tier]?.desc || ""}><span style={{ display: "inline-block", fontSize: 12, fontWeight: 600, padding: "3px 9px", borderRadius: 4, color: "#5a6160", background: "#eef0ef", cursor: "help", letterSpacing: "0.01em" }}>{TIER[tier]?.label || tier}</span></Tip>;
   const TrustBadge = ({ trust }) => { const t = TRUST[trust] || {}; return <Tip text={t.desc || ""}><span style={{ display: "inline-block", fontSize: 12, fontWeight: 600, padding: "3px 9px", borderRadius: 4, color: t.color, background: t.bg, cursor: "help", letterSpacing: "0.01em" }}>{t.label || trust}</span></Tip>; };
   const Price = ({ level }) => <Tip text={PRICE_DESC[level]}><span style={{ fontSize: 14, letterSpacing: -0.5, cursor: "help" }}>{[1,2,3,4].map(i => <span key={i} style={{ color: i <= level ? C.navy : "#d4d8d7", fontWeight: i <= level ? 900 : 400 }}>$</span>)}</span></Tip>;
@@ -781,8 +790,9 @@ ${JSON.stringify(ctx, null, 2)}`,
 
   const sortItemStyle = (active) => ({ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px", fontSize: 13, color: active ? C.teal : C.body, fontWeight: active ? 700 : 400, background: active ? C.bg : "transparent", boxSizing: "border-box" });
   const pillStyle = (variant) => {
-    if (variant === "teal") return { fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 4, background: "#ecfafa", color: "#007377", whiteSpace: "nowrap", letterSpacing: "0.01em" };
-    return { fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 4, background: "#eef0ef", color: "#5a6160", whiteSpace: "nowrap", letterSpacing: "0.01em" };
+    // emphasized = darker gray pill for Best At
+    if (variant === "teal" || variant === "emphasized") return { fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 4, background: "#e5e7eb", color: "#374151", whiteSpace: "nowrap", letterSpacing: "0.01em" };
+    return { fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 4, background: "#f3f4f6", color: "#6b7280", whiteSpace: "nowrap", letterSpacing: "0.01em" };
   };
 
   /* ── cell renderer ───────────────────────────────────── */
@@ -794,7 +804,7 @@ ${JSON.stringify(ctx, null, 2)}`,
             {p.star && <Tip text="Superstar — top recommendation."><Star size={15} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /></Tip>}
             <a href={p.website || undefined} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontWeight: 700, fontSize: 14, color: C.navy, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
               {p.name}
-              {p.website && <Tip text="Open website in new tab"><span className="lv-row-icon-hover" style={{ display: "inline-flex", padding: 4, borderRadius: 4, color: C.teal, background: "rgba(0,115,119,0.08)", flexShrink: 0 }}><ExternalLink size={12} /></span></Tip>}
+              {p.website && <Tip text="Open website in new tab"><span className="lv-row-icon-hover" style={{ display: "inline-flex", padding: 4, borderRadius: 4, color: "#6b7280", background: "#f3f4f6", flexShrink: 0 }}><ExternalLink size={12} /></span></Tip>}
             </a>
           </div>
         );
@@ -804,7 +814,7 @@ ${JSON.stringify(ctx, null, 2)}`,
             <span style={{ fontSize: 13, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
             {!p.email.toLowerCase().includes("fiverr") && (
               <Tip text={copiedId === p.id ? "Copied!" : "Copy email"}>
-                <button onClick={(e) => { e.stopPropagation(); copyEmail(p.id, p.email); }} className="lv-row-icon-hover" style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "inline-flex", padding: 4, borderRadius: 4, color: copiedId === p.id ? "#fff" : C.teal, background: copiedId === p.id ? "#059669" : "rgba(0,115,119,0.08)" }}>
+                <button onClick={(e) => { e.stopPropagation(); copyEmail(p.id, p.email); }} className="lv-row-icon-hover" style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "inline-flex", padding: 4, borderRadius: 4, color: copiedId === p.id ? "#fff" : "#6b7280", background: copiedId === p.id ? "#059669" : "#f3f4f6" }}>
                   {copiedId === p.id ? <Check size={12} /> : <Copy size={12} />}
                 </button>
               </Tip>
@@ -838,21 +848,7 @@ ${JSON.stringify(ctx, null, 2)}`,
     <div style={{ fontFamily: "'Lato', sans-serif", background: C.bg, color: C.navy, minHeight: "100vh" }}>
       <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap" rel="stylesheet" />
       <style>{`
-        .tip { cursor: help; position: relative; }
-        .tip-text {
-          visibility: hidden; opacity: 0; transition: opacity 0.15s;
-          position: fixed;
-          background: #002631; color: #fff;
-          padding: 8px 12px; border-radius: 6px;
-          font-size: 12px; white-space: normal;
-          max-width: 260px; width: max-content;
-          pointer-events: none; z-index: 9999;
-          font-weight: 400; line-height: 1.45;
-          letter-spacing: normal; text-transform: none;
-          left: var(--tip-x, 0); top: var(--tip-y, 0);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .tip:hover .tip-text { visibility: visible; opacity: 1; }
+        .tip { cursor: help; }
         .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #002631; color: #fff; padding: 10px 16px; border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 6px; z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
         body.lv-is-dragging * { user-select: none !important; cursor: grabbing !important; }
         .lv-row:hover { background: ${C.hover} !important; }
@@ -860,7 +856,7 @@ ${JSON.stringify(ctx, null, 2)}`,
         .lv-row-actions { opacity: 0; transition: opacity 0.15s; }
         .lv-row-icon-hover { opacity: 0; transition: opacity 0.15s, background 0.15s; }
         .lv-row:hover .lv-row-icon-hover { opacity: 1; }
-        .lv-row-icon-hover:hover { background: rgba(0,115,119,0.18) !important; }
+        .lv-row-icon-hover:hover { background: #e5e7eb !important; }
         .lv-h-resize { position: absolute; right: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 5; }
         .lv-h-resize:hover { background: ${C.teal}; opacity: 0.4; }
         .lv-h-cell { position: relative; transition: background 0.12s; }
@@ -1120,6 +1116,21 @@ ${JSON.stringify(ctx, null, 2)}`,
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
 
       {/* Toast */}
+      {/* Tooltip - rendered at top level to escape any transform/overflow */}
+      {tooltip && (
+        <div style={{
+          position: "fixed", left: tooltip.x, top: tooltip.y,
+          background: "#002631", color: "#fff",
+          padding: "8px 12px", borderRadius: 6,
+          fontSize: 12, fontWeight: 400, lineHeight: 1.45,
+          maxWidth: 260, width: "max-content",
+          pointerEvents: "none", zIndex: 9999,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          letterSpacing: "normal", textTransform: "none",
+          fontFamily: "'Lato', sans-serif",
+        }}>{tooltip.text}</div>
+      )}
+
       {/* Header menu — fixed position popover */}
       {openHeaderMenu && openHeaderMenuRect && (() => {
         const col = COLUMNS.find(c => c.key === openHeaderMenu);
@@ -1209,7 +1220,7 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, fontFamily: "'Lato', sans-serif" }}>
       {/* Backdrop */}
-      <div onClick={onCancel} style={{ position: "absolute", inset: 0, background: "rgba(0,38,49,0.35)" }} />
+      <div onClick={onCancel} style={{ position: "absolute", inset: 0, background: "rgba(15, 23, 42, 0.25)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }} />
       {/* Drawer */}
       <div style={{
         position: "absolute", top: 0, right: 0, bottom: 0, width: "min(560px, 100vw)",
@@ -1375,7 +1386,7 @@ function FiltersModal({ filters, setFilters, onClose }) {
   const activeFieldDef = FILTER_FIELDS.find(f => f.key === activeField);
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,38,49,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20, fontFamily: "'Lato', sans-serif" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.25)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20, fontFamily: "'Lato', sans-serif" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 980, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 12px 48px rgba(0,38,49,0.2)" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #e8efee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#002631" }}>Filters</h2>
@@ -1453,7 +1464,7 @@ function FiltersModal({ filters, setFilters, onClose }) {
 /* ── Info Modal ────────────────────────────────────────── */
 function InfoModal({ onClose }) {
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,38,49,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20, fontFamily: "'Lato', sans-serif" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.25)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20, fontFamily: "'Lato', sans-serif" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 600, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 12px 48px rgba(0,38,49,0.2)" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #e8efee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#002631" }}>Field reference</h2>
