@@ -179,7 +179,7 @@ const STARTER_ROSTER = [
 ];
 
 const TIER = {
-  BUDGET: { label: "Budget", desc: "Fiverr-level, cost-driven. Good for simple, low-stakes work." },
+  BUDGET: { label: "Low", desc: "Low-cost, cost-driven. Good for simple, low-stakes work." },
   MID:    { label: "Mid",    desc: "Solid professional, good value. Reliable for standard projects." },
   PRO:    { label: "Pro",    desc: "Experienced, polished output. Can handle complex or visible work." },
   ELITE:  { label: "Elite",  desc: "Agency-level, premium work. For high-stakes, flagship projects." },
@@ -295,6 +295,9 @@ export default function FreelancerRoster() {
 
   /* ── ui state ─────────────────────────────────────────── */
   const [openHeaderMenu, setOpenHeaderMenu] = useState(null);
+  const [openHeaderMenuRect, setOpenHeaderMenuRect] = useState(null);
+  const [sortTriggerRect, setSortTriggerRect] = useState(null);
+  const [colPanelTriggerRect, setColPanelTriggerRect] = useState(null);
   const [sortDrop, setSortDrop] = useState(false);
   const [openColPanel, setOpenColPanel] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -325,6 +328,7 @@ export default function FreelancerRoster() {
     const onDocClick = (e) => {
       if (e.target.closest(".lv-header-menu") || e.target.closest(".lv-col-panel") || e.target.closest(".lv-h-menu-trigger") || e.target.closest(".lv-col-panel-trigger") || e.target.closest(".lv-sort-dropdown") || e.target.closest(".lv-sort-trigger")) return;
       setOpenHeaderMenu(null);
+      setOpenHeaderMenuRect(null);
       setOpenColPanel(false);
       setSortDrop(false);
     };
@@ -627,6 +631,7 @@ export default function FreelancerRoster() {
     setSortKey(key);
     setSortDir(dir);
     setOpenHeaderMenu(null);
+    setOpenHeaderMenuRect(null);
   };
   const toggleFilterValue = (field, value) => {
     setFilters(prev => {
@@ -978,61 +983,24 @@ ${JSON.stringify(ctx, null, 2)}`,
                       >
                         <button
                           className="lv-h-menu-trigger"
-                          onClick={(e) => { e.stopPropagation(); setOpenHeaderMenu(openHeaderMenu === col.key ? null : col.key); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (openHeaderMenu === col.key) {
+                              setOpenHeaderMenu(null);
+                              setOpenHeaderMenuRect(null);
+                            } else {
+                              // Find the header cell element to anchor against
+                              const cellEl = headerCellRefs.current.get(col.key);
+                              if (cellEl) setOpenHeaderMenuRect(cellEl.getBoundingClientRect());
+                              setOpenHeaderMenu(col.key);
+                            }
+                          }}
                           style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}
                         >
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.label}</span>
                           {sortKey === col.key && (sortDir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
                           <ChevronDown size={11} style={{ opacity: 0.4 }} />
                         </button>
-
-                        {/* Header menu */}
-                        {openHeaderMenu === col.key && (
-                          <div className="lv-header-menu" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 200, padding: "4px 0", textTransform: "none", letterSpacing: "normal" }}>
-                            {col.sortable && (
-                              <>
-                                <button onClick={() => applySort(col.key, "asc")} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: C.body, fontWeight: 400, boxSizing: "border-box" }}><ArrowUp size={13} />Sort ascending</button>
-                                <button onClick={() => applySort(col.key, "desc")} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: C.body, fontWeight: 400, boxSizing: "border-box" }}><ArrowDown size={13} />Sort descending</button>
-                              </>
-                            )}
-                            {col.hasQuickFilter && col.options && (
-                              <>
-                                {(col.sortable) && <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />}
-                                <div style={{ padding: "6px 12px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Show only</div>
-                                {Object.entries(col.options).map(([k, v]) => {
-                                  const active = (filters[col.key] || []).includes(k);
-                                  return (
-                                    <button key={k} onClick={() => toggleFilterValue(col.key, k)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: active ? C.teal : C.body, fontWeight: active ? 700 : 400, background: active ? C.bg : "transparent", boxSizing: "border-box" }}>
-                                      <span style={{ width: 14, height: 14, border: `1.5px solid ${active ? C.teal : "#d4d8d7"}`, borderRadius: 3, background: active ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{active && <Check size={10} color="#fff" />}</span>
-                                      {v.label}
-                                    </button>
-                                  );
-                                })}
-                              </>
-                            )}
-                            {col.key === "approvedVendor" && (
-                              <>
-                                <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />
-                                <div style={{ padding: "6px 12px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Show only</div>
-                                {[["yes", "Approved"], ["no", "Needs setup"]].map(([k, lbl]) => {
-                                  const active = (filters.approvedVendor || []).includes(k);
-                                  return (
-                                    <button key={k} onClick={() => toggleFilterValue("approvedVendor", k)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: active ? C.teal : C.body, fontWeight: active ? 700 : 400, background: active ? C.bg : "transparent", boxSizing: "border-box" }}>
-                                      <span style={{ width: 14, height: 14, border: `1.5px solid ${active ? C.teal : "#d4d8d7"}`, borderRadius: 3, background: active ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{active && <Check size={10} color="#fff" />}</span>
-                                      {lbl}
-                                    </button>
-                                  );
-                                })}
-                              </>
-                            )}
-                            {col.hideable && (
-                              <>
-                                <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />
-                                <button onClick={() => { toggleHidden(col.key); setOpenHeaderMenu(null); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: C.body, fontWeight: 400, boxSizing: "border-box" }}><EyeOff size={13} />Hide column</button>
-                              </>
-                            )}
-                          </div>
-                        )}
 
                         {/* Resize handle */}
                         <div className="lv-h-resize" onPointerDown={(e) => beginResize(col.key, e)} />
@@ -1125,6 +1093,62 @@ ${JSON.stringify(ctx, null, 2)}`,
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
 
       {/* Toast */}
+      {/* Header menu — fixed position popover */}
+      {openHeaderMenu && openHeaderMenuRect && (() => {
+        const col = COLUMNS.find(c => c.key === openHeaderMenu);
+        if (!col) return null;
+        const menuWidth = 220;
+        const rightOverflow = (openHeaderMenuRect.left + menuWidth) > window.innerWidth - 12;
+        const left = rightOverflow ? Math.max(12, openHeaderMenuRect.right - menuWidth) : openHeaderMenuRect.left;
+        const top = openHeaderMenuRect.bottom + 4;
+        return (
+          <div className="lv-header-menu" onClick={e => e.stopPropagation()} style={{ position: "fixed", top, left, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.16)", zIndex: 9000, minWidth: menuWidth, padding: "4px 0", textTransform: "none", letterSpacing: "normal", maxHeight: `calc(100vh - ${top + 20}px)`, overflowY: "auto" }}>
+            {col.sortable && (
+              <>
+                <button onClick={() => applySort(col.key, "asc")} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: C.body, fontWeight: 400, boxSizing: "border-box" }}><ArrowUp size={13} />Sort ascending</button>
+                <button onClick={() => applySort(col.key, "desc")} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: C.body, fontWeight: 400, boxSizing: "border-box" }}><ArrowDown size={13} />Sort descending</button>
+              </>
+            )}
+            {col.hasQuickFilter && col.options && (
+              <>
+                {col.sortable && <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />}
+                <div style={{ padding: "6px 12px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Show only</div>
+                {Object.entries(col.options).map(([k, v]) => {
+                  const active = (filters[col.key] || []).includes(k);
+                  return (
+                    <button key={k} onClick={() => toggleFilterValue(col.key, k)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: active ? C.teal : C.body, fontWeight: active ? 700 : 400, background: active ? C.bg : "transparent", boxSizing: "border-box" }}>
+                      <span style={{ width: 14, height: 14, border: `1.5px solid ${active ? C.teal : "#d4d8d7"}`, borderRadius: 3, background: active ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{active && <Check size={10} color="#fff" />}</span>
+                      {v.label}
+                    </button>
+                  );
+                })}
+              </>
+            )}
+            {col.key === "approvedVendor" && (
+              <>
+                <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />
+                <div style={{ padding: "6px 12px", fontSize: 10, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Show only</div>
+                {[["yes", "Approved"], ["no", "Needs setup"]].map(([k, lbl]) => {
+                  const active = (filters.approvedVendor || []).includes(k);
+                  return (
+                    <button key={k} onClick={() => toggleFilterValue("approvedVendor", k)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: active ? C.teal : C.body, fontWeight: active ? 700 : 400, background: active ? C.bg : "transparent", boxSizing: "border-box" }}>
+                      <span style={{ width: 14, height: 14, border: `1.5px solid ${active ? C.teal : "#d4d8d7"}`, borderRadius: 3, background: active ? C.teal : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>{active && <Check size={10} color="#fff" />}</span>
+                      {lbl}
+                    </button>
+                  );
+                })}
+              </>
+            )}
+            {col.hideable && (
+              <>
+                <div style={{ height: 1, background: C.rule, margin: "4px 0" }} />
+                <button onClick={() => { toggleHidden(col.key); setOpenHeaderMenu(null); setOpenHeaderMenuRect(null); }} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", fontSize: 13, color: C.body, fontWeight: 400, boxSizing: "border-box" }}><EyeOff size={13} />Hide column</button>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Edit / Add drawer */}
       {(editingId || addingNew) && (
         <EditDrawer
@@ -1217,7 +1241,7 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
             <FieldRow>
               <Field label="Tier" half>
                 <select value={form.tier} onChange={e => set("tier", e.target.value)} style={selS}>
-                  <option value="BUDGET">Budget</option><option value="MID">Mid</option><option value="PRO">Pro</option><option value="ELITE">Elite</option>
+                  <option value="BUDGET">Low</option><option value="MID">Mid</option><option value="PRO">Pro</option><option value="ELITE">Elite</option>
                 </select>
               </Field>
               <Field label="Trust" half>
