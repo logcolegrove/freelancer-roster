@@ -612,7 +612,10 @@ export default function FreelancerRoster() {
 
   /* ── row drag-reorder ─────────────────────────────────── */
   const beginRowDrag = (rowId, e) => {
-    if (e.target.closest("button, select, input, a, .lv-cell-skills-pill")) return;
+    // Don't start drag (or trigger click) for actual interactive controls
+    if (e.target.closest("a[href]")) return;
+    if (e.target.closest(".lv-row-icon-hover")) return;
+    if (e.target.closest("button, select, input, textarea, .lv-cell-skills-pill")) return;
     const orderedIds = rows.map(r => r.id);
     const fromIdx = orderedIds.indexOf(rowId);
     if (fromIdx === -1) return;
@@ -644,6 +647,7 @@ export default function FreelancerRoster() {
       document.removeEventListener("pointerup", onUp);
       document.body.classList.remove("lv-is-dragging");
       if (started && lastTargetIdx !== fromIdx) {
+        // Actual drag — reorder
         const next = [...orderedIds];
         const [m] = next.splice(fromIdx, 1);
         next.splice(lastTargetIdx, 0, m);
@@ -651,6 +655,9 @@ export default function FreelancerRoster() {
         setSortKey("custom");
         rowDragJustEnded.current = true;
         setTimeout(() => { rowDragJustEnded.current = false; }, 150);
+      } else if (!started) {
+        // No movement — treat as click, open the edit drawer
+        setEditingId(rowId);
       }
       setRowDrag(null);
     };
@@ -1075,16 +1082,6 @@ ${JSON.stringify(ctx, null, 2)}`,
                       key={p.id}
                       ref={el => { if (el) rowRefs.current.set(p.id, el); }}
                       onPointerDown={(e) => beginRowDrag(p.id, e)}
-                      onClick={(e) => {
-                        // Only open drawer if not just finishing a drag
-                        if (rowDragJustEnded.current) return;
-                        // Only skip the drawer if the click was on the website link
-                        // or one of the action icons (copy email, etc.)
-                        const t = e.target;
-                        if (t.closest("a[href]")) return;
-                        if (t.closest(".lv-row-icon-hover")) return;
-                        setEditingId(p.id);
-                      }}
                       className="lv-row"
                       style={{
                         display: "grid", gridTemplateColumns: gridTemplate,
