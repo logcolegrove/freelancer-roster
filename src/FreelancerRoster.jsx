@@ -176,6 +176,16 @@ const STARTER_ROSTER = [
     speed: "standard", responsiveness: "neutral", approvedVendor: true,
     notes: "9x Emmy-winning boutique video production agency in San Diego. Founded by three TV industry veterans. Clients include Victorinox Swiss Army, Summer Fridays, and SyFy Channel. Boutique feel with agency-level polish.",
   },
+  {
+    id: 17, name: "Concentric Design", email: "hello@concentric.design",
+    website: "https://www.concentric.design", location: "Chicago, IL + Boulder, CO",
+    categories: ["design", "animation"],
+    skills: ["brand identity", "brand strategy", "brand positioning", "naming", "creative direction", "visual identity", "web design", "print design", "editorial design", "presentation design", "packaging", "environmental signage", "illustration", "animation", "copywriting", "photography", "video production", "social media", "SEO", "marketing design support"],
+    bestAt: ["Brand Strategy & Identity", "Web Design", "Print & Editorial Design"],
+    tier: "ELITE", trust: "PROVING", price: 4,
+    speed: "standard", responsiveness: "neutral", approvedVendor: true,
+    notes: "Chicago + Boulder branding and digital studio founded by Blair Hannah and Jeff Meador. Full-service: brand strategy, identity, web, print, packaging, animation. Strong nonprofit experience plus enterprise clients including United Airlines, Hertz, Norwegian Cruise Line, Paylocity, Teach For America, and University of Chicago. Small studio model that assembles specialist collaborators per project, so pricing is more flexible than a typical firm of their caliber. Good fit for foundation/nonprofit clients given their portfolio.",
+  },
 ];
 
 const TIER = {
@@ -185,8 +195,8 @@ const TIER = {
   ELITE:  { label: "Elite",  desc: "Agency-level, premium work. For high-stakes, flagship projects." },
 };
 const TRUST = {
-  NEW:     { label: "New",     color: "#9ca3af", bg: "#f4f4f5", desc: "Never used. No working history yet." },
-  PROVING: { label: "Proving", color: "#9ca3af", bg: "#f4f4f5", desc: "Used once or twice. Still evaluating fit and reliability." },
+  NEW:     { label: "New",     color: "#5a6160", bg: "#eef0ef", desc: "Never used. No working history yet." },
+  PROVING: { label: "Proving", color: "#5a6160", bg: "#eef0ef", desc: "Used once or twice. Still evaluating fit and reliability." },
   TRUSTED: { label: "Trusted", color: "#065f46", bg: "#ecfdf5", desc: "Proven partner. Consistently delivers — a go-to for their specialty." },
 };
 const PRICE_DESC = { 1: "Budget-friendly. Best for simple or low-stakes work.", 2: "Moderate. Good value for solid professional output.", 3: "Higher-end. Reflects experience and polished quality.", 4: "Premium. Agency-level pricing for flagship work." };
@@ -795,8 +805,8 @@ ${JSON.stringify(ctx, null, 2)}`,
 
   const sortItemStyle = (active) => ({ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px", fontSize: 13, color: active ? C.teal : C.body, fontWeight: active ? 700 : 400, background: active ? C.bg : "transparent", boxSizing: "border-box" });
   const pillStyle = (variant) => {
-    // emphasized = darker gray pill for Best At
-    if (variant === "teal" || variant === "emphasized") return { fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 4, background: "#e5e7eb", color: "#374151", whiteSpace: "nowrap", letterSpacing: "0.01em" };
+    // emphasized = used for Best At (same color as Tier badge)
+    if (variant === "teal" || variant === "emphasized") return { fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 4, background: "#eef0ef", color: "#5a6160", whiteSpace: "nowrap", letterSpacing: "0.01em" };
     return { fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 4, background: "#f3f4f6", color: "#6b7280", whiteSpace: "nowrap", letterSpacing: "0.01em" };
   };
 
@@ -874,7 +884,6 @@ ${JSON.stringify(ctx, null, 2)}`,
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", height: 64, borderBottom: `1px solid ${C.rule}`, background: C.white, position: "sticky", top: 0, zIndex: 50 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
             <span style={{ fontWeight: 900, fontSize: 22, color: C.navy, letterSpacing: "-0.02em" }}>Foundant's Freelancer & Agency Roster</span>
-            <span style={{ fontSize: 14, color: "#b0b5b4", fontWeight: 400 }}>Internal directory of our multimedia & creative partners</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {[["browse", LayoutGrid, "Browse"], ["ai", Sparkles, "Recommend"]].map(([m, Icon, lbl]) => (
@@ -882,7 +891,7 @@ ${JSON.stringify(ctx, null, 2)}`,
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", fontSize: 13, fontWeight: 700, borderRadius: 5, border: `1px solid ${C.rule}`, cursor: "pointer", background: mode === m ? C.navy : C.white, color: mode === m ? "#fff" : C.body }}><Icon size={14} />{lbl}</button>
             ))}
             <div style={{ width: 1, height: 22, background: C.rule, margin: "0 6px" }} />
-            <button onClick={() => setShowInfo(true)} style={{ display: "flex", padding: 8, borderRadius: 5, border: `1px solid ${C.rule}`, cursor: "pointer", background: C.white, color: "#9ca3af" }} title="Field reference"><HelpCircle size={16} /></button>
+            <button onClick={() => setShowInfo(true)} style={{ display: "flex", padding: 8, borderRadius: 5, border: `1px solid ${C.rule}`, cursor: "pointer", background: C.white, color: "#9ca3af" }} title="About & field reference"><HelpCircle size={16} /></button>
           </div>
         </header>
 
@@ -937,11 +946,14 @@ ${JSON.stringify(ctx, null, 2)}`,
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ position: "relative" }}>
-                  <Tip text="Show/hide columns">
-                    <button className="lv-col-panel-trigger" onClick={(e) => { e.stopPropagation(); setOpenColPanel(!openColPanel); }} style={{ display: "flex", alignItems: "center", padding: 8, borderRadius: 5, border: `1px solid ${C.rule}`, cursor: "pointer", background: openColPanel ? C.bg : C.white, color: C.body }}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v18H3z"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
-                    </button>
-                  </Tip>
+                  <button
+                    className="lv-col-panel-trigger tip"
+                    data-tip="Show/hide columns"
+                    onClick={(e) => { e.stopPropagation(); setOpenColPanel(!openColPanel); }}
+                    style={{ display: "flex", alignItems: "center", padding: 8, borderRadius: 5, border: `1px solid ${C.rule}`, cursor: "pointer", background: openColPanel ? C.bg : C.white, color: C.body }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v18H3z"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+                  </button>
                   {openColPanel && (
                     <div className="lv-col-panel" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: C.white, border: `1px solid ${C.rule}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,38,49,0.12)", zIndex: 100, minWidth: 240, padding: "8px 0" }}>
                       <div style={{ padding: "4px 14px 8px", fontSize: 11, color: "#9ca3af", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Columns</div>
@@ -1066,8 +1078,11 @@ ${JSON.stringify(ctx, null, 2)}`,
                       onClick={(e) => {
                         // Only open drawer if not just finishing a drag
                         if (rowDragJustEnded.current) return;
-                        // Don't open if clicking a link, button, or copy icon
-                        if (e.target.closest("a, button")) return;
+                        // Only skip the drawer if the click was on the website link
+                        // or one of the action icons (copy email, etc.)
+                        const t = e.target;
+                        if (t.closest("a[href]")) return;
+                        if (t.closest(".lv-row-icon-hover")) return;
                         setEditingId(p.id);
                       }}
                       className="lv-row"
@@ -1472,10 +1487,24 @@ function InfoModal({ onClose }) {
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.25)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20, fontFamily: "'Lato', sans-serif" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 600, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 12px 48px rgba(0,38,49,0.2)" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #e8efee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#002631" }}>Field reference</h2>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#002631" }}>About</h2>
           <button onClick={onClose} style={{ all: "unset", cursor: "pointer", color: "#9ca3af", display: "flex" }}><X size={18} /></button>
         </div>
         <div style={{ padding: 20 }}>
+          <Sect title="About this tool">
+            <p style={{ fontSize: 13, color: "#53565A", lineHeight: 1.6, marginTop: 0, marginBottom: 10 }}>
+              This is Foundant's internal directory of multimedia and creative partners — designers, animators, photographers, videographers, voiceover artists, and full-service agencies we work with or are evaluating.
+            </p>
+            <p style={{ fontSize: 13, color: "#53565A", lineHeight: 1.6, marginTop: 0, marginBottom: 10 }}>
+              Use <strong style={{ color: "#002631" }}>Browse</strong> to search and filter the roster directly. Use <strong style={{ color: "#002631" }}>Recommend</strong> to describe a project and get AI-powered partner recommendations.
+            </p>
+            <p style={{ fontSize: 13, color: "#b45309", lineHeight: 1.6, marginTop: 0, marginBottom: 10, padding: "8px 12px", background: "#fef3c7", borderRadius: 4, border: "1px solid #fde68a" }}>
+              <strong>Confidential — internal use only.</strong> Do not share this directory or its contents outside Foundant.
+            </p>
+            <p style={{ fontSize: 13, color: "#53565A", lineHeight: 1.6, marginTop: 0, marginBottom: 0 }}>
+              Have feedback, questions, or want to add a partner? Email <a href="mailto:logan.colegrove@foundant.com" style={{ color: "#007377", textDecoration: "none", fontWeight: 600 }}>logan.colegrove@foundant.com</a>.
+            </p>
+          </Sect>
           <Sect title="Tier">{Object.entries(TIER).map(([k, v]) => <Row key={k} k={v.label} v={v.desc} />)}</Sect>
           <Sect title="Trust">{Object.entries(TRUST).map(([k, v]) => <Row key={k} k={v.label} v={v.desc} />)}</Sect>
           <Sect title="Price">{Object.entries(PRICE_DESC).map(([k, v]) => <Row key={k} k={"$".repeat(Number(k))} v={v} />)}</Sect>
