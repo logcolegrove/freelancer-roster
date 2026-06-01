@@ -6,6 +6,7 @@
  */
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { createClient } from "@supabase/supabase-js";
 import {
   Search, X, Sparkles, ChevronDown, ChevronUp, ExternalLink,
   Mic, MicOff, Send, ArrowLeft, Copy, Check,
@@ -239,7 +240,7 @@ const COLUMNS = [
   { key: "notes",          label: "Notes",     defaultWidth: 280, minWidth: 160, sortable: false, hideable: true },
 ];
 
-const DEFAULT_VISIBLE = ["name", "email", "bestAt", "tier", "trust", "price", "speed", "responsiveness", "approvedVendor"];
+const DEFAULT_VISIBLE = ["name", "email", "bestAt", "tier", "trust", "price", "speed", "approvedVendor"];
 
 // Skill groupings for the filters modal — organize the long flat skills list into meaningful groups
 const SKILL_GROUPS = [
@@ -261,39 +262,106 @@ const LS = {
   savedView: "freelancer-roster.v2.savedView",
 };
 
-function loadLS(key, fallback) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
-}
-function saveLS(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+// ─── Supabase setup ───
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || "";
+const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
+const supabase = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+// In-memory cache mirroring the data we've fetched from Supabase. The component
+// reads synchronously from this so React state initializers stay fast. Writes
+// update both the cache and Supabase (debounced).
+const _cache = {};
+const _saveTimers = {};
+
+// Pre-load all keys from Supabase into the cache on app start.
+// Returns a Promise that resolves once data is hydrated.
+async function hydrateFromSupabase() {
+  if (!supabase) return;
+  try {
+    const { data, error } = await supabase.from("roster_data").select("key, value");
+    if (error) { console.error("Supabase load error:", error); return; }
+    (data || []).forEach(row => { _cache[row.key] = row.value; });
+  } catch (e) {
+    console.error("Supabase hydrate failed:", e);
+  }
 }
 
-export default function FreelancerRoster() {
+function loadLS(key, fallback) {
+  if (_cache[key] !== undefined) return _cache[key];
+  return fallback;
+}
+
+function saveLS(key, value) {
+  _cache[key] = value;
+  if (!supabase) return;
+  // Debounce: coalesce rapid writes (e.g. during drag) into one network call.
+  if (_saveTimers[key]) clearTimeout(_saveTimers[key]);
+  _saveTimers[key] = setTimeout(async () => {
+    try {
+      const { error } = await supabase
+        .from("roster_data")
+        .upsert({ key, value }, { onConflict: "key" });
+      if (error) console.error(`Supabase save error for ${key}:`, error);
+    } catch (e) {
+      console.error("Supabase save failed:", e);
+    }
+  }, 300);
+}
+
+export default function FreelancerRosterWrapper() {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    hydrateFromSupabase().finally(() => { if (!cancelled) setHydrated(true); });
+    return () => { cancelled = true; };
+  }, []);
+  if (!hydrated) {
+    return (
+      <div style={{ fontFamily: "'Lato', sans-serif", background: "#f6f9f8", color: "#002631", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap" rel="stylesheet" />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 14, color: "#9ca3af", marginBottom: 8 }}>Loading roster…</div>
+        </div>
+      </div>
+    );
+  }
+  return <FreelancerRoster />;
+}
+
+function FreelancerRoster() {
   /* ── core state ───────────────────────────────────────── */
   const [mode, setMode] = useState("browse");
   const [roster, setRoster] = useState(() => loadLS(LS.roster, STARTER_ROSTER));
   const [showInfo, setShowInfo] = useState(false);
 
   /* ── list view state ─────────────────────────────────── */
+  // The "saved view" is the canonical source of truth for column layout.
+  // Read it first and use it to seed widths/order/hidden if it exists.
+  const _savedView = loadLS(LS.savedView, null);
   const [columnOrder, setColumnOrder] = useState(() => {
-    const saved = loadLS(LS.order, null);
-    if (saved && Array.isArray(saved)) {
+    const source = _savedView?.columnOrder || loadLS(LS.order, null);
+    if (source && Array.isArray(source)) {
       const validKeys = COLUMNS.map(c => c.key);
-      const cleaned = saved.filter(k => validKeys.includes(k));
+      const cleaned = source.filter(k => validKeys.includes(k));
       const missing = validKeys.filter(k => !cleaned.includes(k));
       return [...cleaned, ...missing];
     }
     return COLUMNS.map(c => c.key);
   });
-  const [hidden, setHidden] = useState(() => new Set(loadLS(LS.hidden, COLUMNS.filter(c => !DEFAULT_VISIBLE.includes(c.key) && c.hideable).map(c => c.key))));
+  const [hidden, setHidden] = useState(() => {
+    const source = _savedView?.hidden || loadLS(LS.hidden, null);
+    if (source && Array.isArray(source)) return new Set(source);
+    // No saved data — fall back to defaults
+    return new Set(COLUMNS.filter(c => !DEFAULT_VISIBLE.includes(c.key) && c.hideable).map(c => c.key));
+  });
   const [widths, setWidths] = useState(() => {
-    const saved = loadLS(LS.widths, {});
-    const defaults = {};
-    COLUMNS.forEach(c => { defaults[c.key] = saved[c.key] || c.defaultWidth; });
-    return defaults;
+    const source = _savedView?.widths || loadLS(LS.widths, {});
+    const result = {};
+    COLUMNS.forEach(c => { result[c.key] = source[c.key] || c.defaultWidth; });
+    return result;
   });
   const [customRowOrder, setCustomRowOrder] = useState(() => loadLS(LS.customOrder, null));
-  const [savedView, setSavedView] = useState(() => loadLS(LS.savedView, null));
+  const [savedView, setSavedView] = useState(() => _savedView);
 
   /* ── sort/filter/search state ─────────────────────────── */
   const [sortKey, setSortKey] = useState("custom"); // 'custom' = superstar-first then alpha
@@ -876,8 +944,8 @@ ${JSON.stringify(ctx, null, 2)}`,
         .lv-row:hover { background: ${C.hover} !important; }
         .lv-row:hover .lv-row-actions { opacity: 1; }
         .lv-row-actions { opacity: 0; transition: opacity 0.15s; }
-        .lv-row-icon-hover { opacity: 0; transition: opacity 0.15s, background 0.15s; }
-        .lv-row:hover .lv-row-icon-hover { opacity: 1; }
+        .lv-row-icon-hover { opacity: 0 !important; transition: opacity 0.15s, background 0.15s; }
+        .lv-row:hover .lv-row-icon-hover { opacity: 1 !important; }
         .lv-row-icon-hover:hover { background: #e5e7eb !important; }
         .lv-h-resize { position: absolute; right: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 5; }
         .lv-h-resize:hover { background: ${C.teal}; opacity: 0.4; }
