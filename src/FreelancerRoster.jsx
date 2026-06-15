@@ -683,6 +683,7 @@ function FreelancerRoster() {
     // Don't start drag (or trigger click) for actual interactive controls
     if (e.target.closest("a[href]")) return;
     if (e.target.closest(".lv-row-icon-hover")) return;
+    if (e.target.closest(".lv-row-icon-hover-trigger")) return;
     if (e.target.closest("button, select, input, textarea, .lv-cell-skills-pill")) return;
     const orderedIds = rows.map(r => r.id);
     const fromIdx = orderedIds.indexOf(rowId);
@@ -892,10 +893,19 @@ ${JSON.stringify(ctx, null, 2)}`,
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, overflow: "hidden" }}>
             {p.star && <Tip text="Superstar — top recommendation."><Star size={15} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /></Tip>}
-            <a href={p.website || undefined} target="_blank" rel="noopener noreferrer" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} style={{ fontWeight: 700, fontSize: 14, color: C.navy, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              className="lv-row-icon-hover-trigger"
+              onPointerDown={e => e.stopPropagation()}
+              onMouseDown={e => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (p.website) window.open(p.website, "_blank", "noopener,noreferrer");
+              }}
+              style={{ fontWeight: 700, fontSize: 14, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6, cursor: p.website ? "pointer" : "default" }}
+            >
               {p.name}
               {p.website && <Tip text="Open website in new tab"><span className="lv-row-icon-hover" style={{ display: "inline-flex", padding: 4, borderRadius: 4, color: "#6b7280", background: "#f3f4f6", flexShrink: 0 }}><ExternalLink size={12} /></span></Tip>}
-            </a>
+            </span>
           </div>
         );
       case "email":
@@ -903,11 +913,20 @@ ${JSON.stringify(ctx, null, 2)}`,
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
             <span style={{ fontSize: 13, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
             {!p.email.toLowerCase().includes("fiverr") && (
-              <Tip text={copiedId === p.id ? "Copied!" : "Copy email"}>
-                <button onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); copyEmail(p.id, p.email); }} className="lv-row-icon-hover" style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "inline-flex", padding: 4, borderRadius: 4, color: copiedId === p.id ? "#fff" : "#6b7280", background: copiedId === p.id ? "#059669" : "#f3f4f6" }}>
-                  {copiedId === p.id ? <Check size={12} /> : <Copy size={12} />}
-                </button>
-              </Tip>
+              <button
+                className="lv-row-icon-hover tip"
+                data-tip={copiedId === p.id ? "Copied!" : "Copy email"}
+                onPointerDown={e => e.stopPropagation()}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  copyEmail(p.id, p.email);
+                }}
+                style={{ all: "unset", cursor: "pointer", flexShrink: 0, display: "inline-flex", padding: 4, borderRadius: 4, color: copiedId === p.id ? "#fff" : "#6b7280", background: copiedId === p.id ? "#059669" : "#f3f4f6" }}
+              >
+                {copiedId === p.id ? <Check size={12} /> : <Copy size={12} />}
+              </button>
             )}
           </div>
         );
