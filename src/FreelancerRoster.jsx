@@ -893,18 +893,23 @@ ${JSON.stringify(ctx, null, 2)}`,
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, overflow: "hidden" }}>
             {p.star && <Tip text="Superstar — top recommendation."><Star size={15} fill="#059669" color="#059669" style={{ flexShrink: 0, cursor: "help" }} /></Tip>}
-            <span
-              className="lv-row-icon-hover-trigger"
-              onPointerDown={e => e.stopPropagation()}
-              onMouseDown={e => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (p.website) window.open(p.website, "_blank", "noopener,noreferrer");
-              }}
-              style={{ fontWeight: 700, fontSize: 14, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6, cursor: p.website ? "pointer" : "default" }}
-            >
-              {p.name}
-              {p.website && <Tip text="Open website in new tab"><span className="lv-row-icon-hover" style={{ display: "inline-flex", padding: 4, borderRadius: 4, color: "#6b7280", background: "#f3f4f6", flexShrink: 0 }}><ExternalLink size={12} /></span></Tip>}
+            <span style={{ fontWeight: 700, fontSize: 14, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+              {p.website && (
+                <a
+                  href={p.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="lv-row-icon-hover tip"
+                  data-tip="Open website in new tab"
+                  onPointerDown={e => e.stopPropagation()}
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => e.stopPropagation()}
+                  style={{ display: "inline-flex", padding: 4, borderRadius: 4, color: "#6b7280", background: "#f3f4f6", flexShrink: 0, textDecoration: "none" }}
+                >
+                  <ExternalLink size={12} />
+                </a>
+              )}
             </span>
           </div>
         );
