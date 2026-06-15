@@ -820,7 +820,7 @@ function FreelancerRoster() {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1500,
+        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500,
           system: `You are a quick, practical creative operations advisor at Foundant Technologies. Your job is to point people to the right freelancer or agency from the roster — fast.
 
 KEY PRINCIPLE: Recommend first, ask questions later. Users just want to be pointed in the right direction. The freelancer will handle the details.
