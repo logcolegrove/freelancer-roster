@@ -4,9 +4,9 @@
  * StoryMatch-style list view with drag-reorder, resize, filters
  * ============================================================
  */
-
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supabaseClient";
+import AuthGate, { canEditNow, UserBadge } from "./AuthGate";
 import {
   Search, X, Sparkles, ChevronDown, ChevronUp, ExternalLink,
   Mic, MicOff, Send, ArrowLeft, Copy, Check,
@@ -15,7 +15,6 @@ import {
   Camera, Wand2, Zap, Clock, MessageCircle, MoreHorizontal, Star,
   ArrowUp, ArrowDown, EyeOff, Filter, Pencil, Trash2, GripVertical,
 } from "lucide-react";
-
 const STARTER_ROSTER = [
   {
     id: 1, name: "Sari Miller", email: "sarijones1@gmail.com",
@@ -188,7 +187,6 @@ const STARTER_ROSTER = [
     notes: "Chicago + Boulder branding and digital studio founded by Blair Hannah and Jeff Meador. Full-service: brand strategy, identity, web, print, packaging, animation. Strong nonprofit experience plus enterprise clients including United Airlines, Hertz, Norwegian Cruise Line, Paylocity, Teach For America, and University of Chicago. Small studio model that assembles specialist collaborators per project, so pricing is more flexible than a typical firm of their caliber. Good fit for foundation/nonprofit clients given their portfolio.",
   },
 ];
-
 const TIER = {
   BUDGET: { label: "Low", desc: "Low-cost, cost-driven. Good for simple, low-stakes work." },
   MID:    { label: "Mid",    desc: "Solid professional, good value. Reliable for standard projects." },
@@ -222,7 +220,6 @@ const CATS = [
 const TIER_ORDER = { BUDGET: 0, MID: 1, PRO: 2, ELITE: 3 };
 const TRUST_ORDER = { NEW: 0, PROVING: 1, TRUSTED: 2 };
 const C = { teal: "#007377", green: "#97D700", navy: "#002631", body: "#53565A", rule: "#e8efee", bg: "#f6f9f8", white: "#ffffff", hover: "#f9fbfa" };
-
 // ─── Column definitions (StoryMatch-style descriptors) ───
 const COLUMNS = [
   { key: "name",           label: "Name",      defaultWidth: 240, minWidth: 180, sortable: true,  hideable: false, pinned: true },
@@ -239,9 +236,7 @@ const COLUMNS = [
   { key: "skills",         label: "Skills",    defaultWidth: 260, minWidth: 140, sortable: false, hideable: true },
   { key: "notes",          label: "Notes",     defaultWidth: 280, minWidth: 160, sortable: false, hideable: true },
 ];
-
 const DEFAULT_VISIBLE = ["name", "email", "bestAt", "tier", "trust", "price", "speed", "approvedVendor"];
-
 // Skill groupings for the filters modal — organize the long flat skills list into meaningful groups
 const SKILL_GROUPS = [
   { label: "Video & Film", skills: ["video production", "video editing", "brand films", "commercials", "documentary", "testimonial videos", "corporate video", "event videography", "scriptwriting", "cinematography", "post-production", "color grading", "live streaming"] },
@@ -261,18 +256,15 @@ const LS = {
   customOrder: "freelancer-roster.v2.customOrder",
   savedView: "freelancer-roster.v2.savedView",
 };
-
 // ─── Supabase setup ───
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || "";
-const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
-const supabase = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+// The client moved to src/supabaseClient.js so AuthGate and this file share
+// one instance. That's required for your login token to reach data queries.
 
 // In-memory cache mirroring the data we've fetched from Supabase. The component
 // reads synchronously from this so React state initializers stay fast. Writes
 // update both the cache and Supabase (debounced).
 const _cache = {};
 const _saveTimers = {};
-
 // Pre-load all keys from Supabase into the cache on app start.
 // Returns a Promise that resolves once data is hydrated.
 async function hydrateFromSupabase() {
@@ -285,15 +277,17 @@ async function hydrateFromSupabase() {
     console.error("Supabase hydrate failed:", e);
   }
 }
-
 function loadLS(key, fallback) {
   if (_cache[key] !== undefined) return _cache[key];
   return fallback;
 }
-
 function saveLS(key, value) {
   _cache[key] = value;
   if (!supabase) return;
+  // Viewers keep changes in memory only — nothing reaches the database.
+  // Every write in the app funnels through here, so this one line covers
+  // roster edits, column layout, row order, and saved views.
+  if (!canEditNow()) return;
   // Debounce: coalesce rapid writes (e.g. during drag) into one network call.
   if (_saveTimers[key]) clearTimeout(_saveTimers[key]);
   _saveTimers[key] = setTimeout(async () => {
@@ -307,8 +301,17 @@ function saveLS(key, value) {
     }
   }, 300);
 }
-
 export default function FreelancerRosterWrapper() {
+  // AuthGate renders the sign-in screen and only lets its children mount once
+  // someone is signed in with a known role. Hydrating AFTER that matters: a
+  // signed-out request would come back empty.
+  return (
+    <AuthGate>
+      <RosterHydrator />
+    </AuthGate>
+  );
+}
+function RosterHydrator() {
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -327,13 +330,11 @@ export default function FreelancerRosterWrapper() {
   }
   return <FreelancerRoster />;
 }
-
 function FreelancerRoster() {
   /* ── core state ───────────────────────────────────────── */
   const [mode, setMode] = useState("browse");
   const [roster, setRoster] = useState(() => loadLS(LS.roster, STARTER_ROSTER));
   const [showInfo, setShowInfo] = useState(false);
-
   /* ── list view state ─────────────────────────────────── */
   // The "saved view" is the canonical source of truth for column layout.
   // Read it first and use it to seed widths/order/hidden if it exists.
@@ -362,7 +363,6 @@ function FreelancerRoster() {
   });
   const [customRowOrder, setCustomRowOrder] = useState(() => loadLS(LS.customOrder, null));
   const [savedView, setSavedView] = useState(() => _savedView);
-
   /* ── sort/filter/search state ─────────────────────────── */
   const [sortKey, setSortKey] = useState("custom"); // 'custom' = superstar-first then alpha
   const [sortDir, setSortDir] = useState("asc");
@@ -370,7 +370,6 @@ function FreelancerRoster() {
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
-
   /* ── ui state ─────────────────────────────────────────── */
   const [openHeaderMenu, setOpenHeaderMenu] = useState(null);
   const [openHeaderMenuRect, setOpenHeaderMenuRect] = useState(null);
@@ -389,7 +388,6 @@ function FreelancerRoster() {
   const rowRefs = useRef(new Map());
   const rowDragJustEnded = useRef(false);
   const searchInputRef = useRef(null);
-
   /* ── AI state ─────────────────────────────────────────── */
   const apiKey = process.env.REACT_APP_API_KEY || "YOUR_API_KEY_HERE";
   const [aiPrompt, setAiPrompt] = useState("");
@@ -399,7 +397,6 @@ function FreelancerRoster() {
   const [expandedRecs, setExpandedRecs] = useState({});
   const [isListening, setIsListening] = useState(false);
   const recogRef = useRef(null);
-
   /* ── persistence effects ─────────────────────────────── */
   useEffect(() => saveLS(LS.roster, roster), [roster]);
   useEffect(() => {
@@ -418,12 +415,10 @@ function FreelancerRoster() {
   useEffect(() => saveLS(LS.hidden, [...hidden]), [hidden]);
   useEffect(() => saveLS(LS.widths, widths), [widths]);
   useEffect(() => { if (customRowOrder) saveLS(LS.customOrder, customRowOrder); }, [customRowOrder]);
-
   /* ── focus search input when opened ───────────────────── */
   useEffect(() => {
     if (searchOpen && searchInputRef.current) searchInputRef.current.focus();
   }, [searchOpen]);
-
   /* ── global tooltip system ────────────────────────────── */
   useEffect(() => {
     let measureEl = null;
@@ -474,7 +469,6 @@ function FreelancerRoster() {
       if (measureEl && measureEl.parentNode) measureEl.parentNode.removeChild(measureEl);
     };
   }, []);
-
   /* ── derived: visible columns ─────────────────────────── */
   const visibleColumns = useMemo(() => {
     return columnOrder
@@ -482,15 +476,12 @@ function FreelancerRoster() {
       .map(k => COLUMNS.find(c => c.key === k))
       .filter(Boolean);
   }, [columnOrder, hidden]);
-
   const gridTemplate = useMemo(() => {
     return visibleColumns.map(c => `${widths[c.key]}px`).join(" ");
   }, [visibleColumns, widths]);
-
   /* ── derived: filtered + sorted rows ──────────────────── */
   const rows = useMemo(() => {
     let r = [...roster];
-
     // search
     const q = search.trim().toLowerCase();
     if (q) {
@@ -503,7 +494,6 @@ function FreelancerRoster() {
         (p.notes || "").toLowerCase().includes(q)
       );
     }
-
     // filters
     for (const [key, values] of Object.entries(filters)) {
       if (!values || !values.length) continue;
@@ -515,7 +505,6 @@ function FreelancerRoster() {
         return values.includes(p[key]);
       });
     }
-
     // sort
     if (sortKey === "custom") {
       // If we have a custom row order, apply it; otherwise stars-first then alpha
@@ -549,17 +538,14 @@ function FreelancerRoster() {
         return 0;
       });
     }
-
     return r;
   }, [roster, search, filters, sortKey, sortDir, customRowOrder]);
-
   /* ── active filter count ──────────────────────────────── */
   const activeFilterCount = useMemo(() => {
     let n = 0;
     for (const vals of Object.values(filters)) n += (vals || []).length;
     return n;
   }, [filters]);
-
   // Detect if the current view differs from the saved default
   const viewChanged = useMemo(() => {
     if (!savedView) {
@@ -578,7 +564,6 @@ function FreelancerRoster() {
       JSON.stringify([...hidden].sort()) !== JSON.stringify([...(savedView.hidden || [])].sort())
     );
   }, [savedView, widths, columnOrder, hidden]);
-
   const saveCurrentView = () => {
     const view = { widths, columnOrder, hidden: [...hidden] };
     setSavedView(view);
@@ -596,7 +581,6 @@ function FreelancerRoster() {
       setHidden(new Set(COLUMNS.filter(c => !DEFAULT_VISIBLE.includes(c.key) && c.hideable).map(c => c.key)));
     }
   };
-
   /* ── column drag-reorder ──────────────────────────────── */
   const beginColumnDrag = (key, e) => {
     const col = COLUMNS.find(c => c.key === key);
@@ -616,7 +600,6 @@ function FreelancerRoster() {
     const startX = e.clientX;
     let started = false;
     let lastTargetIdx = fromIdx;
-
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
       if (!started) {
@@ -657,7 +640,6 @@ function FreelancerRoster() {
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
   };
-
   /* ── column resize ────────────────────────────────────── */
   const beginResize = (key, e) => {
     e.stopPropagation();
@@ -677,7 +659,6 @@ function FreelancerRoster() {
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
   };
-
   /* ── row drag-reorder ─────────────────────────────────── */
   const beginRowDrag = (rowId, e) => {
     // Don't start drag (or trigger click) for actual interactive controls
@@ -691,7 +672,6 @@ function FreelancerRoster() {
     const startY = e.clientY;
     let started = false;
     let lastTargetIdx = fromIdx;
-
     const onMove = (ev) => {
       const dy = ev.clientY - startY;
       if (!started) {
@@ -733,7 +713,6 @@ function FreelancerRoster() {
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
   };
-
   /* ── helpers ─────────────────────────────────────────── */
   const copyEmail = (id, email) => {
     if (email && !email.toLowerCase().includes("fiverr")) {
@@ -780,7 +759,6 @@ function FreelancerRoster() {
       setEditingId(null);
     }
   };
-
   /* ── voice input ─────────────────────────────────────── */
   const toggleListening = () => {
     if (isListening && recogRef.current) { recogRef.current.stop(); return; }
@@ -795,7 +773,6 @@ function FreelancerRoster() {
     setIsListening(true);
     recogRef.current = r;
   };
-
   /* ── AI submit ───────────────────────────────────────── */
   const submitAi = async () => {
     const q = aiPrompt.trim();
@@ -822,15 +799,12 @@ function FreelancerRoster() {
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500,
           system: `You are a quick, practical creative operations advisor at Foundant Technologies. Your job is to point people to the right freelancer or agency from the roster — fast.
-
 KEY PRINCIPLE: Recommend first, ask questions later. Users just want to be pointed in the right direction. The freelancer will handle the details.
-
 BEHAVIOR:
 - Default to giving 2–3 recommendations immediately. More options = better, because if one person is unavailable the user has backups ready.
 - Only ask a clarifying question if the request is genuinely ambiguous in a way that would change WHO you recommend (e.g. "I need an ad" — video ad vs print ad would be totally different people). If it wouldn't change the recommendation, just recommend.
 - Things like "what platform?" or "is this a one-off?" or "do you have brand assets?" are NOT your problem — that's between the user and the freelancer. Don't ask.
 - Keep responses short and direct. No over-explaining.
-
 RECOMMENDING:
 - You can ONLY recommend people from the ROSTER below — never invent people.
 - When recommending, respond with ONLY the JSON object — no text before or after. Put all context inside the JSON fields. Format: { "recommendations": [{ "name": "...", "reasoning": "...", "caveats": "..." }] } — aim for 2–3 entries. No markdown fences.
@@ -838,7 +812,6 @@ RECOMMENDING:
 - If nobody on the roster is remotely close, recommend the nearest option anyway with honest caveats, and mention reaching out to logan.colegrove@foundant.com to get a specialist added.
 - Prefer "star" freelancers when relevant — these are Foundant's go-to partners.
 - Note when someone is already approved in Foundant's vendor system (approvedVendor: true) — means no onboarding needed.
-
 ROSTER:
 ${JSON.stringify(ctx, null, 2)}`,
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
@@ -870,7 +843,6 @@ ${JSON.stringify(ctx, null, 2)}`,
       setAiMessages(prev => [...prev, { role: "assistant", content: text, recommendations: recs, extraText }]);
     } catch (e) { setAiError(e.message); } finally { setAiLoading(false); }
   };
-
   /* ── tiny components ─────────────────────────────────── */
   const Tip = ({ text, children }) => <span className="tip" data-tip={text} style={{ position: "relative", display: "inline-flex" }}>{children}</span>;
   const TierBadge = ({ tier }) => <Tip text={TIER[tier]?.desc || ""}><span style={{ display: "inline-block", fontSize: 12, fontWeight: 600, padding: "3px 9px", borderRadius: 4, color: "#5a6160", background: "#eef0ef", cursor: "help", letterSpacing: "0.01em" }}>{TIER[tier]?.label || tier}</span></Tip>;
@@ -878,14 +850,12 @@ ${JSON.stringify(ctx, null, 2)}`,
   const Price = ({ level }) => <Tip text={PRICE_DESC[level]}><span style={{ fontSize: 14, letterSpacing: -0.5, cursor: "help" }}>{[1,2,3,4].map(i => <span key={i} style={{ color: i <= level ? C.navy : "#d4d8d7", fontWeight: i <= level ? 900 : 400 }}>$</span>)}</span></Tip>;
   const SpeedBadge = ({ level }) => { const s = SPEED[level] || {}; return <Tip text={s.desc || ""}><span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: s.color, cursor: "help" }}>{level === "fast" ? <Zap size={12} /> : <Clock size={12} />}{s.label}</span></Tip>; };
   const RespBadge = ({ level }) => { if (!level || level === "neutral") return <span style={{ color: "#c8cecd", fontSize: 13 }}>—</span>; const r = RESPONSIVENESS[level]; return <span style={{ display: "inline-block", fontSize: 12, fontWeight: 600, padding: "3px 9px", borderRadius: 4, color: r.color, background: r.bg, letterSpacing: "0.01em" }}>{r.label}</span>; };
-
   const sortItemStyle = (active) => ({ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px", fontSize: 13, color: active ? C.teal : C.body, fontWeight: active ? 700 : 400, background: active ? C.bg : "transparent", boxSizing: "border-box" });
   const pillStyle = (variant) => {
     // emphasized = used for Best At (same color as Tier badge)
     if (variant === "teal" || variant === "emphasized") return { fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 4, background: "#eef0ef", color: "#5a6160", whiteSpace: "nowrap", letterSpacing: "0.01em" };
     return { fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 4, background: "#f3f4f6", color: "#6b7280", whiteSpace: "nowrap", letterSpacing: "0.01em" };
   };
-
   /* ── cell renderer ───────────────────────────────────── */
   const renderCell = (col, p) => {
     switch (col.key) {
@@ -956,7 +926,6 @@ ${JSON.stringify(ctx, null, 2)}`,
       default: return null;
     }
   };
-
   /* ── render ──────────────────────────────────────────── */
   return (
     <div style={{ fontFamily: "'Lato', sans-serif", background: C.bg, color: C.navy, minHeight: "100vh" }}>
@@ -976,9 +945,7 @@ ${JSON.stringify(ctx, null, 2)}`,
         .lv-h-cell { position: relative; transition: background 0.12s; }
         .lv-h-cell:hover { background: #eef2f1; }
       `}</style>
-
       <div style={{ maxWidth: 1440, margin: "0 auto", background: C.white, minHeight: "100vh", boxShadow: "0 0 40px rgba(0,38,49,0.04)" }}>
-
         {/* ── Header ──────────────────────────────────── */}
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", height: 64, borderBottom: `1px solid ${C.rule}`, background: C.white, position: "sticky", top: 0, zIndex: 50 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
@@ -991,9 +958,9 @@ ${JSON.stringify(ctx, null, 2)}`,
             ))}
             <div style={{ width: 1, height: 22, background: C.rule, margin: "0 6px" }} />
             <button onClick={() => setShowInfo(true)} style={{ display: "flex", padding: 8, borderRadius: 5, border: `1px solid ${C.rule}`, cursor: "pointer", background: C.white, color: "#9ca3af" }} title="About & field reference"><HelpCircle size={16} /></button>
+            <UserBadge />
           </div>
         </header>
-
         {/* ── Browse / List View ────────────────────────── */}
         {mode === "browse" && (
           <div>
@@ -1084,11 +1051,9 @@ ${JSON.stringify(ctx, null, 2)}`,
                 </button>
               </div>
             </div>
-
             {/* List view */}
             <div style={{ overflowX: "auto", overflowY: "visible" }}>
               <div style={{ minWidth: "fit-content" }}>
-
                 {/* Header row */}
                 <div style={{ display: "grid", gridTemplateColumns: gridTemplate, background: "#fafbfb", borderBottom: `1px solid ${C.rule}`, position: "relative", zIndex: 30 }}>
                   {visibleColumns.map((col, i) => {
@@ -1140,14 +1105,12 @@ ${JSON.stringify(ctx, null, 2)}`,
                           {sortKey === col.key && (sortDir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
                           <ChevronDown size={11} style={{ opacity: 0.4 }} />
                         </button>
-
                         {/* Resize handle */}
                         <div className="lv-h-resize" onPointerDown={(e) => beginResize(col.key, e)} />
                       </div>
                     );
                   })}
                 </div>
-
                 {/* Rows */}
                 {rows.map((p, rowIdx) => {
                   const isDragged = rowDrag?.id === p.id;
@@ -1206,7 +1169,6 @@ ${JSON.stringify(ctx, null, 2)}`,
             </div>
           </div>
         )}
-
         {/* ── AI Recommend mode ─────────────────────────── */}
         {mode === "ai" && <AiPanel
           aiMessages={aiMessages} aiPrompt={aiPrompt} setAiPrompt={setAiPrompt}
@@ -1217,13 +1179,10 @@ ${JSON.stringify(ctx, null, 2)}`,
           Tip={Tip} TierBadge={TierBadge} TrustBadge={TrustBadge} Price={Price} SpeedBadge={SpeedBadge}
         />}
       </div>
-
       {/* Filters modal */}
       {showFiltersModal && <FiltersModal filters={filters} setFilters={setFilters} onClose={() => setShowFiltersModal(false)} />}
-
       {/* Info modal */}
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
-
       {/* Toast */}
       {/* Tooltip - rendered at top level to escape any transform/overflow */}
       {tooltip && (
@@ -1239,7 +1198,6 @@ ${JSON.stringify(ctx, null, 2)}`,
           fontFamily: "'Lato', sans-serif",
         }}>{tooltip.text}</div>
       )}
-
       {/* Header menu — fixed position popover */}
       {openHeaderMenu && openHeaderMenuRect && (() => {
         const col = COLUMNS.find(c => c.key === openHeaderMenu);
@@ -1295,7 +1253,6 @@ ${JSON.stringify(ctx, null, 2)}`,
           </div>
         );
       })()}
-
       {/* Edit / Add drawer */}
       {(editingId || addingNew) && (
         <EditDrawer
@@ -1305,12 +1262,10 @@ ${JSON.stringify(ctx, null, 2)}`,
           onDelete={deleteFreelancer}
         />
       )}
-
       {showToast && <div className="toast"><Check size={12} />Email copied</div>}
     </div>
   );
 }
-
 /* ── Edit/Add Right-Side Drawer ────────────────────────── */
 function EditDrawer({ initial, onSave, onCancel, onDelete }) {
   const blank = { name: "", email: "", website: "", location: "", categories: [], skills: [], bestAt: [], tier: "MID", trust: "NEW", price: 2, speed: "standard", responsiveness: "neutral", approvedVendor: false, star: false, notes: "" };
@@ -1318,14 +1273,12 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const parseList = (s) => s.split(",").map(x => x.trim()).filter(Boolean);
   const isNew = !initial;
-
   // ESC to close
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onCancel(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onCancel]);
-
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, fontFamily: "'Lato', sans-serif" }}>
       {/* Backdrop */}
@@ -1338,7 +1291,6 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
         animation: "drawerSlide 0.2s ease-out",
       }}>
         <style>{`@keyframes drawerSlide { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
-
         {/* Header */}
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #e8efee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
@@ -1347,7 +1299,6 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
           </div>
           <button onClick={onCancel} style={{ all: "unset", cursor: "pointer", color: "#9ca3af", padding: 6 }}><X size={20} /></button>
         </div>
-
         {/* Body — scrollable */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
           <Section title="Basics">
@@ -1364,7 +1315,6 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
               <input value={form.location} onChange={e => set("location", e.target.value)} placeholder="City, State" style={inputS} />
             </Field>
           </Section>
-
           <Section title="Specialty">
             <Field label="Categories" hint="Pick all that apply">
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1383,7 +1333,6 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
               <textarea value={(form.skills || []).join(", ")} onChange={e => set("skills", parseList(e.target.value))} placeholder="e.g. Figma, After Effects, brand design, motion graphics" style={{ ...inputS, minHeight: 60, fontFamily: "inherit", resize: "vertical" }} />
             </Field>
           </Section>
-
           <Section title="Ratings">
             <FieldRow>
               <Field label="Tier" half>
@@ -1415,7 +1364,6 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
               </select>
             </Field>
           </Section>
-
           <Section title="Status">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#53565A", cursor: "pointer" }}>
@@ -1428,13 +1376,11 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
               </label>
             </div>
           </Section>
-
           <Section title="Notes">
             <Field label="Internal notes" hint="Context, caveats, who referred them, etc.">
               <textarea value={form.notes || ""} onChange={e => set("notes", e.target.value)} placeholder="Anything else worth knowing…" style={{ ...inputS, minHeight: 80, fontFamily: "inherit", resize: "vertical" }} />
             </Field>
           </Section>
-
           {!isNew && onDelete && (
             <Section title="Danger zone">
               <button onClick={() => { if (window.confirm(`Delete ${form.name}? This cannot be undone.`)) { onDelete(initial.id); onCancel(); } }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 5, cursor: "pointer" }}>
@@ -1443,7 +1389,6 @@ function EditDrawer({ initial, onSave, onCancel, onDelete }) {
             </Section>
           )}
         </div>
-
         {/* Footer */}
         <div style={{ padding: "16px 24px", borderTop: "1px solid #e8efee", display: "flex", justifyContent: "flex-end", gap: 8, background: "#fafbfb" }}>
           <button onClick={onCancel} style={{ padding: "9px 18px", fontSize: 13, fontWeight: 600, background: "#fff", color: "#53565A", border: "1px solid #e8efee", borderRadius: 5, cursor: "pointer" }}>Cancel</button>
@@ -1458,7 +1403,6 @@ const Field = ({ label, hint, half, children }) => <div style={{ marginBottom: 1
 const FieldRow = ({ children }) => <div style={{ display: "flex", gap: 12 }}>{children}</div>;
 const inputS = { padding: "8px 11px", fontSize: 13, border: "1px solid #e8efee", borderRadius: 5, fontFamily: "inherit", outline: "none", background: "#fff", color: "#002631", width: "100%", boxSizing: "border-box" };
 const selS = { padding: "8px 11px", fontSize: 13, border: "1px solid #e8efee", borderRadius: 5, fontFamily: "inherit", background: "#fff", color: "#002631", textTransform: "none", letterSpacing: "normal", fontWeight: 400, width: "100%", boxSizing: "border-box" };
-
 /* ── Filters Modal (Rippling-style 3-column) ──────────── */
 function FiltersModal({ filters, setFilters, onClose }) {
   // Build complete list of filterable fields - columns + special ones
@@ -1473,7 +1417,6 @@ function FiltersModal({ filters, setFilters, onClose }) {
     { key: "skills", label: "Skills & Tools", isSkills: true },
   ];
   const [activeField, setActiveField] = useState(FILTER_FIELDS[0].key);
-
   const allSelected = Object.entries(filters).flatMap(([field, vals]) =>
     (vals || []).map(v => ({ field, value: v }))
   );
@@ -1493,7 +1436,6 @@ function FiltersModal({ filters, setFilters, onClose }) {
     });
   };
   const activeFieldDef = FILTER_FIELDS.find(f => f.key === activeField);
-
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.25)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20, fontFamily: "'Lato', sans-serif" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 980, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 12px 48px rgba(0,38,49,0.2)" }}>
@@ -1569,7 +1511,6 @@ function FiltersModal({ filters, setFilters, onClose }) {
     </div>
   );
 }
-
 /* ── Info Modal ────────────────────────────────────────── */
 function InfoModal({ onClose }) {
   return (
@@ -1605,7 +1546,6 @@ function InfoModal({ onClose }) {
 }
 const Sect = ({ title, children }) => <div style={{ marginBottom: 18 }}><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#007377", marginBottom: 6 }}>{title}</div>{children}</div>;
 const Row = ({ k, v }) => <div style={{ fontSize: 13, color: "#53565A", marginBottom: 4 }}><strong style={{ color: "#002631" }}>{k}</strong> — {v}</div>;
-
 /* ── AI Recommend Panel ────────────────────────────────── */
 function AiPanel({ aiMessages, aiPrompt, setAiPrompt, aiLoading, aiError, setAiError, submitAi, roster, copiedId, copyEmail, expandedRecs, setExpandedRecs, Tip, TierBadge, TrustBadge, Price, SpeedBadge }) {
   const QUICK_STARTS = [
@@ -1714,7 +1654,6 @@ function AiPanel({ aiMessages, aiPrompt, setAiPrompt, aiLoading, aiError, setAiE
     </div>
   );
 }
-
 function PromptInput({ aiPrompt, setAiPrompt, aiLoading, submitAi }) {
   const [focused, setFocused] = useState(false);
   return (
